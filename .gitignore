@@ -1,0 +1,5 @@
+config/*
+!config/vpn/
+downloads/*
+media/*
+.DS_Store

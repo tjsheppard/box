@@ -1,0 +1,119 @@
+services:
+  vpn:
+    image: dperson/openvpn-client:latest
+    restart: always
+    volumes:
+      - /dev/net:/dev/net:z
+      - ${CONFIG}/vpn:/vpn
+    ports:
+      - 8112:8112 # deluge
+      - 9696:9696 # prowlerr
+      - 8989:8989 # sonarr
+      - 7878:7878 # radarr
+    cap_add:
+      - net_admin
+    security_opt:
+      - label:disable
+    sysctls:
+      - "net.ipv6.conf.all.disable_ipv6=0"
+    command: '-f "" -r 192.168.1.0/24'
+
+  deluge:
+    image: linuxserver/deluge:latest
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG}/deluge:/config
+      - ${DOWNLOADS}:/downloads
+    network_mode: service:vpn
+    depends_on:
+      - vpn
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - UMASK=002
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${CONFIG}/prowlarr:/config
+    network_mode: service:vpn
+    depends_on:
+      - vpn
+
+  radarr:
+    image: linuxserver/radarr:latest
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${CONFIG}/radarr:/config
+      - ${DOWNLOADS}:/downloads
+      - ${MEDIA}/movies:/movies
+    network_mode: service:vpn
+    depends_on:
+      - vpn
+      - deluge
+      - prowlarr
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${CONFIG}/sonarr:/config
+      - ${DOWNLOADS}:/downloads
+      - ${MEDIA}/series:/series
+    network_mode: service:vpn
+    depends_on:
+      - vpn
+      - deluge
+      - prowlarr
+
+  plex:
+    image: linuxserver/plex:latest
+    restart: always
+    environment:
+      - TZ=${TZ}
+      - VERSION=latest
+      - PLEX_CLAIM=${PLEX_CLAIM}
+    volumes:
+      - ${CONFIG}/plex/db:/config
+      - ${CONFIG}/plex/transcode:/transcode
+      - ${MEDIA}:/data
+    ports:
+      - 32400:32400
+      - 1900:1900
+      - 8324:8324
+      - 32410:32410
+      - 32412:32412
+      - 32413:32413
+      - 32414:32414
+      - 32469:32469
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    restart: always
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${CONFIG}:/srv/config
+      - ${CONFIG}/filebrowser:/config
+      - ${DOWNLOADS}:/srv/downloads
+      - ${MEDIA}:/srv/media
+    ports:
+      - 8080:80
