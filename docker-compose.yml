@@ -6,9 +6,9 @@ services:
       - /dev/net:/dev/net:z
       - ${CONFIG}/vpn:/vpn
     ports:
-      - 8112:8112
-      - 6881:6881
-      - 6881:6881/udp
+      - 8112:8112 # deluge
+      - 6881:6881 # deluge
+      - 6881:6881/udp # deluge
       - 9696:9696 # prowlerr
       - 8989:8989 # sonarr
       - 7878:7878 # radarr
@@ -21,7 +21,7 @@ services:
     command: '-f "" -r 192.168.1.0/24'
   deluge:
     image: linuxserver/deluge:latest
-    restart: always
+    restart: unless-stopped
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -93,13 +93,31 @@ services:
       - ${MEDIA}:/data
     ports:
       - 32400:32400
-      - 1900:1900
+      - 1900:1900/udp
+      - 3005:3005
+      - 5353:5353/udp
       - 8324:8324
-      - 32410:32410
-      - 32412:32412
-      - 32413:32413
-      - 32414:32414
+      - 32410:32410/udp
+      - 32412:32412/udp
+      - 32413:32413/udp
+      - 32414:32414/udp
       - 32469:32469
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG}/jellyfin:/config
+      - ${MEDIA}/movies:/data/movies
+      - ${MEDIA}/series:/data/series
+    ports:
+      - 8096:8096
+      - 8920:8920
+      - 7359:7359/udp
+      - 1900:1900/udp
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: unless-stopped
@@ -114,45 +132,22 @@ services:
     ports:
       - 8080:80
   dashy:
-    # To build from source, replace 'image: lissy93/dashy' with 'build: .'
-    # build: .
     image: lissy93/dashy
-    # Pass in your config file below, by specifying the path on your host machine
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - UID=${PUID}
+      - GID=${PGID}
     volumes:
       - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
     ports:
       - 4000:80
-    # Set any environmental variables
-    environment:
-      - NODE_ENV=production
-      # Specify your user ID and group ID. You can find this by running `id -u` and `id -g`
-      - UID=${PUID}
-      - GID=${PGID}
-    # Specify restart policy
-    restart: unless-stopped
-    # Configure healthchecks
     healthcheck:
       test: [ 'CMD', 'node', '/app/services/healthcheck' ]
       interval: 1m30s
       timeout: 10s
       retries: 3
       start_period: 40s
-  jellyfin:
-    image: linuxserver/jellyfin:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONFIG}/jellyfin:/config
-      - ${MEDIA}/movies:/data/movies
-      - ${MEDIA}/series:/data/series
-    ports:
-      - 8096:8096
-      - 8920:8920 #optional
-      - 7359:7359/udp #optional
-      - 1900:1900/udp #optional
   # caddy:
   #   image: caddy:latest
   #   restart: unless-stopped
