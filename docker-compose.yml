@@ -17,7 +17,6 @@ services:
     sysctls:
       - "net.ipv6.conf.all.disable_ipv6=0"
     command: '-f "" -r 192.168.1.0/24'
-
   deluge:
     image: linuxserver/deluge:latest
     restart: always
@@ -28,9 +27,6 @@ services:
     volumes:
       - ${CONFIG}/deluge:/config
       - ${DOWNLOADS}:/downloads
-    ports:
-      - 8112:8112 # deluge
-
   prowlarr:
     image: linuxserver/prowlarr:latest
     restart: unless-stopped
@@ -45,7 +41,6 @@ services:
     network_mode: service:vpn
     depends_on:
       - vpn
-
   radarr:
     image: linuxserver/radarr:latest
     restart: unless-stopped
@@ -63,7 +58,6 @@ services:
       - vpn
       - deluge
       - prowlarr
-
   sonarr:
     image: linuxserver/sonarr:latest
     restart: unless-stopped
@@ -81,28 +75,26 @@ services:
       - vpn
       - deluge
       - prowlarr
-
-  plex:
-    image: linuxserver/plex:latest
-    restart: unless-stopped
-    environment:
-      - TZ=${TZ}
-      - VERSION=latest
-      - PLEX_CLAIM=${PLEX_CLAIM}
-    volumes:
-      - ${CONFIG}/plex/db:/config
-      - ${CONFIG}/plex/transcode:/transcode
-      - ${MEDIA}:/data
-    ports:
-      - 32400:32400
-      - 1900:1900
-      - 8324:8324
-      - 32410:32410
-      - 32412:32412
-      - 32413:32413
-      - 32414:32414
-      - 32469:32469
-
+  # plex:
+  #   image: linuxserver/plex:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - TZ=${TZ}
+  #     - VERSION=latest
+  #     - PLEX_CLAIM=${PLEX_CLAIM}
+  #   volumes:
+  #     - ${CONFIG}/plex/db:/config
+  #     - ${CONFIG}/plex/transcode:/transcode
+  #     - ${MEDIA}:/data
+  #   ports:
+  #     - 32400:32400
+  #     - 1900:1900
+  #     - 8324:8324
+  #     - 32410:32410
+  #     - 32412:32412
+  #     - 32413:32413
+  #     - 32414:32414
+  #     - 32469:32469
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: unless-stopped
@@ -116,7 +108,6 @@ services:
       - ${MEDIA}:/srv/media
     ports:
       - 8080:80
-
   dashy:
     # To build from source, replace 'image: lissy93/dashy' with 'build: .'
     # build: .
@@ -141,7 +132,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
   jellyfin:
     image: linuxserver/jellyfin:latest
     restart: unless-stopped
@@ -170,7 +160,6 @@ services:
   #     - $PWD/site:/srv
   #     - ${CONFIG}/caddy_data:/data
   #     - ${CONFIG}caddy_config:/config
-
   # pihole:
   #   image: pihole/pihole:latest
   #   # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
