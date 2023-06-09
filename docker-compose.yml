@@ -80,26 +80,26 @@ services:
       - vpn
       - deluge
       - prowlarr
-  # plex:
-  #   image: linuxserver/plex:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - TZ=${TZ}
-  #     - VERSION=latest
-  #     - PLEX_CLAIM=${PLEX_CLAIM}
-  #   volumes:
-  #     - ${CONFIG}/plex/db:/config
-  #     - ${CONFIG}/plex/transcode:/transcode
-  #     - ${MEDIA}:/data
-  #   ports:
-  #     - 32400:32400
-  #     - 1900:1900
-  #     - 8324:8324
-  #     - 32410:32410
-  #     - 32412:32412
-  #     - 32413:32413
-  #     - 32414:32414
-  #     - 32469:32469
+  plex:
+    image: linuxserver/plex:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - VERSION=latest
+      - PLEX_CLAIM=${PLEX_CLAIM}
+    volumes:
+      - ${CONFIG}/plex/db:/config
+      - ${CONFIG}/plex/transcode:/transcode
+      - ${MEDIA}:/data
+    ports:
+      - 32400:32400
+      - 1900:1900
+      - 8324:8324
+      - 32410:32410
+      - 32412:32412
+      - 32413:32413
+      - 32414:32414
+      - 32469:32469
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: unless-stopped
