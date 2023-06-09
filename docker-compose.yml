@@ -141,23 +141,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  # jellyfin:
-  #   image: linuxserver/jellyfin:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #   volumes:
-  #     - ${CONFIG}/jellyfin:/config
-  #     - ${MEDIA}/movies:/data/movies
-  #     - ${MEDIA}/series:/data/series
-  #   ports:
-  #     - 8096:8096
-  #     - 8920:8920 #optional
-  #     - 7359:7359/udp #optional
-  #     - 1900:1900/udp #optional
 
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG}/jellyfin:/config
+      - ${MEDIA}/movies:/data/movies
+      - ${MEDIA}/series:/data/series
+    ports:
+      - 8096:8096
+      - 8920:8920 #optional
+      - 7359:7359/udp #optional
+      - 1900:1900/udp #optional
   # caddy:
   #   image: caddy:latest
   #   restart: unless-stopped

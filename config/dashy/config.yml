@@ -44,6 +44,11 @@ sections:
         icon: far fa-play
         url: http://box.local:32400
         target: newtab
+      - title: Jellyfin
+        description: Watch movies and series
+        icon: far fa-play
+        url: http://box.local:8096
+        target: newtab
       - title: File browser
         description: Manage folders and files
         icon: far fa-folder
