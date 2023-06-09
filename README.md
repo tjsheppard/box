@@ -1,6 +1,14 @@
 # Box 🦜 📦 🍿
 
-Get movie and series. That's it.
+Get movie and series. That's it. Using open-source technologies. You don't need to make any accounts.
+
+https://github.com/filebrowser/filebrowser
+https://github.com/deluge-torrent/deluge
+https://github.com/Prowlarr/Prowlarr
+https://github.com/jellyfin/jellyfin
+https://github.com/Sonarr/Sonarr
+https://github.com/Radarr/Radarr
+
 
 ## Step 1
 

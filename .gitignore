@@ -1,5 +1,15 @@
-config/*
-!config/vpn/
+config/plex/*
+config/jellyfin/*
+config/sonarr/*
+config/radarr/*
+config/deluge/*
+# config/dashy/*
+# config/vpn/*
+config/prowlarr/*
+config/pihole/*
+
+
 downloads/*
 media/*
+.env
 .DS_Store
