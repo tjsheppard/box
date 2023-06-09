@@ -4,7 +4,8 @@ config/sonarr/*
 config/radarr/*
 config/deluge/*
 # config/dashy/*
-# config/vpn/*
+config/vpn/vpn.txt
+config/vpn/vpn.crt
 config/prowlarr/*
 config/pihole/*
 
