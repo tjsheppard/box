@@ -4,12 +4,11 @@ config/sonarr/*
 config/radarr/*
 config/deluge/*
 # config/dashy/*
+config/vpn/vpn.conf
 config/vpn/vpn.txt
 config/vpn/vpn.crt
 config/prowlarr/*
 config/pihole/*
-
-
 downloads/*
 media/*
 .env
