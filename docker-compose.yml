@@ -82,7 +82,7 @@ services:
       - deluge
       - prowlarr
   readarr:
-    image: linuxserver/readarr:latest
+    image: cr.hotio.dev/hotio/readarr
     restart: unless-stopped
     environment:
       - PUID=${PUID}
@@ -98,7 +98,7 @@ services:
       - deluge
       - prowlarr
   plex:
-    image: linuxserver/readarr:develop
+    image: linuxserver/plex:latest
     restart: unless-stopped
     environment:
       - TZ=${TZ}
