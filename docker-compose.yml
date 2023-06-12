@@ -98,7 +98,7 @@ services:
       - deluge
       - prowlarr
   plex:
-    image: linuxserver/plex:latest
+    image: linuxserver/readarr:develop
     restart: unless-stopped
     environment:
       - TZ=${TZ}

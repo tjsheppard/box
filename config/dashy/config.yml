@@ -39,6 +39,11 @@ sections:
         icon: far fa-film
         url: http://box.local:7878
         target: newtab
+      - title: Readarr
+        description: Manage Books
+        icon: far fa-book
+        url: http://box.local:8787
+        target: newtab
       - title: Plex
         description: Watch movies and series
         icon: far fa-play
