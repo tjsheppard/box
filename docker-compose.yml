@@ -124,19 +124,19 @@ services:
       # - 6789:6789 #optional
       # - 5514:5514/udp #optional
     restart: unless-stopped
-  filebrowser:
-    image: filebrowser/filebrowser:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${CONFIG}:/srv/config
-      - ${CONFIG}/filebrowser:/config
-      - ${DOWNLOADS}:/srv/downloads
-      - ${MEDIA}:/srv/media
-    ports:
-      - 8080:80
+  # filebrowser:
+  #   image: filebrowser/filebrowser:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #   volumes:
+  #     - ${CONFIG}:/srv/config
+  #     - ${CONFIG}/filebrowser:/config
+  #     - ${DOWNLOADS}:/srv/downloads
+  #     - ${MEDIA}:/srv/media
+  #   ports:
+  #     - 8080:80
   dashy:
     image: lissy93/dashy
     restart: unless-stopped
