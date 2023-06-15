@@ -4,6 +4,7 @@ config/sonarr/*
 config/radarr/*
 config/readarr/*
 config/deluge/*
+config/unifi-controller/*
 # config/dashy/*
 config/vpn/vpn.conf
 config/vpn/vpn.txt
