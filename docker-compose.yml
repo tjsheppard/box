@@ -81,28 +81,28 @@ services:
       - vpn
       - deluge
       - prowlarr
-      # plex:
-      #   image: linuxserver/plex:latest
-      #   restart: unless-stopped
-      #   environment:
-      #     - TZ=${TZ}
-      #     - VERSION=latest
-      #     - PLEX_CLAIM=${PLEX_CLAIM}
-      #   volumes:
-      #     - ${CONFIG}/plex/db:/config
-      #     - ${CONFIG}/plex/transcode:/transcode
-      #     - ${MEDIA}:/data
-      #   ports:
-      #     - 32400:32400
-      #     # - 1900:1900/udp
-      #     # - 3005:3005
-      #     # - 5353:5353/udp
-      #     # - 8324:8324
-      #     # - 32410:32410/udp
-      #     # - 32412:32412/udp
-      #     # - 32413:32413/udp
-      #     # - 32414:32414/udp
-      #     # - 32469:32469
+  plex:
+    image: linuxserver/plex:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - VERSION=latest
+      - PLEX_CLAIM=${PLEX_CLAIM}
+    volumes:
+      - ${CONFIG}/plex/db:/config
+      - ${CONFIG}/plex/transcode:/transcode
+      - ${MEDIA}:/data
+    ports:
+      - 32400:32400
+      # - 1900:1900/udp
+      # - 3005:3005
+      # - 5353:5353/udp
+      # - 8324:8324
+      # - 32410:32410/udp
+      # - 32412:32412/udp
+      # - 32413:32413/udp
+      # - 32414:32414/udp
+      # - 32469:32469
   unifi-controller:
     image: linuxserver/unifi-controller:latest
     environment:
@@ -118,11 +118,11 @@ services:
       - 3478:3478/udp
       - 10001:10001/udp
       - 8080:8080
-      - 1900:1900/udp #optional
-      - 8843:8843 #optional
-      - 8880:8880 #optional
-      - 6789:6789 #optional
-      - 5514:5514/udp #optional
+      # - 1900:1900/udp #optional
+      # - 8843:8843 #optional
+      # - 8880:8880 #optional
+      # - 6789:6789 #optional
+      # - 5514:5514/udp #optional
     restart: unless-stopped
   filebrowser:
     image: filebrowser/filebrowser:latest
