@@ -81,60 +81,28 @@ services:
       - vpn
       - deluge
       - prowlarr
-  # readarr:
-  #   image: cr.hotio.dev/hotio/readarr
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #   volumes:
-  #     - ${CONFIG}/readarr:/config
-  #     - ${DOWNLOADS}:/downloads
-  #     - ${MEDIA}/books:/books
-  #   network_mode: service:vpn
-  #   depends_on:
-  #     - vpn
-  #     - deluge
-  #     - prowlarr
-  plex:
-    image: linuxserver/plex:latest
-    restart: unless-stopped
-    environment:
-      - TZ=${TZ}
-      - VERSION=latest
-      - PLEX_CLAIM=${PLEX_CLAIM}
-    volumes:
-      - ${CONFIG}/plex/db:/config
-      - ${CONFIG}/plex/transcode:/transcode
-      - ${MEDIA}:/data
-    ports:
-      - 32400:32400
-      # - 1900:1900/udp
-      # - 3005:3005
-      # - 5353:5353/udp
-      # - 8324:8324
-      # - 32410:32410/udp
-      # - 32412:32412/udp
-      # - 32413:32413/udp
-      # - 32414:32414/udp
-      # - 32469:32469
-      # jellyfin:
-      #   image: linuxserver/jellyfin:latest
+      # plex:
+      #   image: linuxserver/plex:latest
       #   restart: unless-stopped
       #   environment:
-      #     - PUID=${PUID}
-      #     - PGID=${PGID}
       #     - TZ=${TZ}
+      #     - VERSION=latest
+      #     - PLEX_CLAIM=${PLEX_CLAIM}
       #   volumes:
-      #     - ${CONFIG}/jellyfin:/config
-      #     - ${MEDIA}/movies:/data/movies
-      #     - ${MEDIA}/series:/data/series
+      #     - ${CONFIG}/plex/db:/config
+      #     - ${CONFIG}/plex/transcode:/transcode
+      #     - ${MEDIA}:/data
       #   ports:
-      #     - 8096:8096
-      #     - 8920:8920
-      #     - 7359:7359/udp
-      #     - 1900:1900/udp
+      #     - 32400:32400
+      #     # - 1900:1900/udp
+      #     # - 3005:3005
+      #     # - 5353:5353/udp
+      #     # - 8324:8324
+      #     # - 32410:32410/udp
+      #     # - 32412:32412/udp
+      #     # - 32413:32413/udp
+      #     # - 32414:32414/udp
+      #     # - 32469:32469
   unifi-controller:
     image: linuxserver/unifi-controller:latest
     environment:
@@ -214,3 +182,35 @@ services:
   #     - ${CONFIG}/pihole/etc-pihole:/etc/pihole
   #     - ${CONFIG}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d'
   #   restart: unless-stopped
+  # readarr:
+  #   image: cr.hotio.dev/hotio/readarr
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - ${CONFIG}/readarr:/config
+  #     - ${DOWNLOADS}:/downloads
+  #     - ${MEDIA}/books:/books
+  #   network_mode: service:vpn
+  #   depends_on:
+  #     - vpn
+  #     - deluge
+  #     - prowlarr
+  # jellyfin:
+  #   image: linuxserver/jellyfin:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - ${CONFIG}/jellyfin:/config
+  #     - ${MEDIA}/movies:/data/movies
+  #     - ${MEDIA}/series:/data/series
+  #   ports:
+  #     - 8096:8096
+  #     - 8920:8920
+  #     - 7359:7359/udp
+  #     - 1900:1900/udp
