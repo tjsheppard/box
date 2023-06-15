@@ -81,22 +81,22 @@ services:
       - vpn
       - deluge
       - prowlarr
-  readarr:
-    image: cr.hotio.dev/hotio/readarr
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONFIG}/readarr:/config
-      - ${DOWNLOADS}:/downloads
-      - ${MEDIA}/books:/books
-    network_mode: service:vpn
-    depends_on:
-      - vpn
-      - deluge
-      - prowlarr
+  # readarr:
+  #   image: cr.hotio.dev/hotio/readarr
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - ${CONFIG}/readarr:/config
+  #     - ${DOWNLOADS}:/downloads
+  #     - ${MEDIA}/books:/books
+  #   network_mode: service:vpn
+  #   depends_on:
+  #     - vpn
+  #     - deluge
+  #     - prowlarr
   plex:
     image: linuxserver/plex:latest
     restart: unless-stopped
@@ -119,22 +119,43 @@ services:
       # - 32413:32413/udp
       # - 32414:32414/udp
       # - 32469:32469
-  jellyfin:
-    image: linuxserver/jellyfin:latest
-    restart: unless-stopped
+      # jellyfin:
+      #   image: linuxserver/jellyfin:latest
+      #   restart: unless-stopped
+      #   environment:
+      #     - PUID=${PUID}
+      #     - PGID=${PGID}
+      #     - TZ=${TZ}
+      #   volumes:
+      #     - ${CONFIG}/jellyfin:/config
+      #     - ${MEDIA}/movies:/data/movies
+      #     - ${MEDIA}/series:/data/series
+      #   ports:
+      #     - 8096:8096
+      #     - 8920:8920
+      #     - 7359:7359/udp
+      #     - 1900:1900/udp
+  unifi-controller:
+    image: linuxserver/unifi-controller:latest
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
-      - TZ=${TZ}
+      - TZ=Etc/UTC
+      - MEM_LIMIT=1024 #optional
+      - MEM_STARTUP=1024 #optional
     volumes:
-      - ${CONFIG}/jellyfin:/config
-      - ${MEDIA}/movies:/data/movies
-      - ${MEDIA}/series:/data/series
+      - ${CONFIG}/unifi-controller:/config
     ports:
-      - 8096:8096
-      - 8920:8920
-      - 7359:7359/udp
-      - 1900:1900/udp
+      - 8443:8443
+      - 3478:3478/udp
+      - 10001:10001/udp
+      - 8080:8080
+      - 1900:1900/udp #optional
+      - 8843:8843 #optional
+      - 8880:8880 #optional
+      - 6789:6789 #optional
+      - 5514:5514/udp #optional
+    restart: unless-stopped
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: unless-stopped
