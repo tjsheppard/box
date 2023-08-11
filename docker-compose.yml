@@ -103,27 +103,6 @@ services:
       # - 32413:32413/udp
       # - 32414:32414/udp
       # - 32469:32469
-  unifi-controller:
-    image: linuxserver/unifi-controller:latest
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=Etc/UTC
-      - MEM_LIMIT=1024 #optional
-      - MEM_STARTUP=1024 #optional
-    volumes:
-      - ${CONFIG}/unifi-controller:/config
-    ports:
-      - 8443:8443
-      - 3478:3478/udp
-      - 10001:10001/udp
-      - 8080:8080
-      # - 1900:1900/udp #optional
-      # - 8843:8843 #optional
-      # - 8880:8880 #optional
-      # - 6789:6789 #optional
-      # - 5514:5514/udp #optional
-    restart: unless-stopped
   # filebrowser:
   #   image: filebrowser/filebrowser:latest
   #   restart: unless-stopped
@@ -154,50 +133,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  # caddy:
-  #   image: caddy:latest
-  #   restart: unless-stopped
-  #   ports:
-  #     - 80:80
-  #     - 443:443
-  #     - 443:443/udp
-  #   volumes:
-  #     - ${CONFIG}/Caddy/Caddyfile:/etc/caddy/Caddyfile
-  #     - $PWD/site:/srv
-  #     - ${CONFIG}/caddy_data:/data
-  #     - ${CONFIG}caddy_config:/config
-  # pihole:
-  #   image: pihole/pihole:latest
-  #   # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
-  #   ports:
-  #     - "53:53/tcp"
-  #     - "53:53/udp"
-  #     - "67:67/udp" # Only required if you are using Pi-hole as your DHCP server
-  #     - "80:80/tcp"
-  #   environment:
-  #     TZ: ${TZ}
-  #     WEBPASSWORD: 'sheppard'
-  #     # Volumes store your data between container upgrades
-  #   volumes:
-  #     - ${CONFIG}/pihole/etc-pihole:/etc/pihole
-  #     - ${CONFIG}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d'
-  #   restart: unless-stopped
-  # readarr:
-  #   image: cr.hotio.dev/hotio/readarr
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #   volumes:
-  #     - ${CONFIG}/readarr:/config
-  #     - ${DOWNLOADS}:/downloads
-  #     - ${MEDIA}/books:/books
-  #   network_mode: service:vpn
-  #   depends_on:
-  #     - vpn
-  #     - deluge
-  #     - prowlarr
   # jellyfin:
   #   image: linuxserver/jellyfin:latest
   #   restart: unless-stopped
