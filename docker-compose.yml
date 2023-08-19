@@ -103,19 +103,35 @@ services:
       # - 32413:32413/udp
       # - 32414:32414/udp
       # - 32469:32469
-  # filebrowser:
-  #   image: filebrowser/filebrowser:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #   volumes:
-  #     - ${CONFIG}:/srv/config
-  #     - ${CONFIG}/filebrowser:/config
-  #     - ${DOWNLOADS}:/srv/downloads
-  #     - ${MEDIA}:/srv/media
-  #   ports:
-  #     - 8080:80
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG}/jellyfin:/config
+      - ${MEDIA}/movies:/data/movies
+      - ${MEDIA}/series:/data/series
+    ports:
+      - 8096:8096
+      - 8920:8920
+      - 7359:7359/udp
+      - 1900:1900/udp
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${CONFIG}:/srv/config
+      - ${CONFIG}/filebrowser:/config
+      - ${DOWNLOADS}:/srv/downloads
+      - ${MEDIA}:/srv/media
+    ports:
+      - 8080:80
   dashy:
     image: lissy93/dashy
     restart: unless-stopped
@@ -133,19 +149,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  # jellyfin:
-  #   image: linuxserver/jellyfin:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #   volumes:
-  #     - ${CONFIG}/jellyfin:/config
-  #     - ${MEDIA}/movies:/data/movies
-  #     - ${MEDIA}/series:/data/series
-  #   ports:
-  #     - 8096:8096
-  #     - 8920:8920
-  #     - 7359:7359/udp
-  #     - 1900:1900/udp
