@@ -90,8 +90,8 @@ services:
       - PLEX_CLAIM=${PLEX_CLAIM}
     volumes:
       - ${CONFIG}/plex/db:/config
-      - ${CONFIG}/plex/transcode:/transcode
       - ${MEDIA}:/data
+      - /dev/shm:/transcode # Use shared RAM disk for transcoding
     ports:
       - 32400:32400
       # - 1900:1900/udp
@@ -103,49 +103,51 @@ services:
       # - 32413:32413/udp
       # - 32414:32414/udp
       # - 32469:32469
-  jellyfin:
-    image: linuxserver/jellyfin:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${CONFIG}/jellyfin:/config
-      - ${MEDIA}/movies:/data/movies
-      - ${MEDIA}/series:/data/series
-    ports:
-      - 8096:8096
-      - 8920:8920
-      - 7359:7359/udp
-      - 1900:1900/udp
-  filebrowser:
-    image: filebrowser/filebrowser:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${CONFIG}:/srv/config
-      - ${CONFIG}/filebrowser:/config
-      - ${DOWNLOADS}:/srv/downloads
-      - ${MEDIA}:/srv/media
-    ports:
-      - 8080:80
-  dashy:
-    image: lissy93/dashy
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - UID=${PUID}
-      - GID=${PGID}
-    volumes:
-      - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
-    ports:
-      - 4000:80
-    healthcheck:
-      test: [ 'CMD', 'node', '/app/services/healthcheck' ]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    devices:
+    - /dev/dri:dev/dri # Add hardware transcoding for Intel CPU
+  # jellyfin:
+  #   image: linuxserver/jellyfin:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - ${CONFIG}/jellyfin:/config
+  #     - ${MEDIA}/movies:/data/movies
+  #     - ${MEDIA}/series:/data/series
+  #   ports:
+  #     - 8096:8096
+  #     - 8920:8920
+  #     - 7359:7359/udp
+  #     - 1900:1900/udp
+  # filebrowser:
+  #   image: filebrowser/filebrowser:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #   volumes:
+  #     - ${CONFIG}:/srv/config
+  #     - ${CONFIG}/filebrowser:/config
+  #     - ${DOWNLOADS}:/srv/downloads
+  #     - ${MEDIA}:/srv/media
+  #   ports:
+  #     - 8080:80
+  # dashy:
+  #   image: lissy93/dashy
+  #   restart: unless-stopped
+  #   environment:
+  #     - NODE_ENV=production
+  #     - UID=${PUID}
+  #     - GID=${PGID}
+  #   volumes:
+  #     - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
+  #   ports:
+  #     - 4000:80
+  #   healthcheck:
+  #     test: [ 'CMD', 'node', '/app/services/healthcheck' ]
+  #     interval: 1m30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
