@@ -104,7 +104,24 @@ services:
       # - 32414:32414/udp
       # - 32469:32469
     devices:
-    - /dev/dri:dev/dri # Add hardware transcoding for Intel CPU
+      - /dev/dri:dev/dri # Add hardware transcoding for Intel CPU
+  dashy:
+    image: lissy93/dashy
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - UID=${PUID}
+      - GID=${PGID}
+    volumes:
+      - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
+    ports:
+      - 4000:80
+    healthcheck:
+      test: [ 'CMD', 'node', '/app/services/healthcheck' ]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
   # jellyfin:
   #   image: linuxserver/jellyfin:latest
   #   restart: unless-stopped
@@ -134,20 +151,3 @@ services:
   #     - ${MEDIA}:/srv/media
   #   ports:
   #     - 8080:80
-  # dashy:
-  #   image: lissy93/dashy
-  #   restart: unless-stopped
-  #   environment:
-  #     - NODE_ENV=production
-  #     - UID=${PUID}
-  #     - GID=${PGID}
-  #   volumes:
-  #     - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
-  #   ports:
-  #     - 4000:80
-  #   healthcheck:
-  #     test: [ 'CMD', 'node', '/app/services/healthcheck' ]
-  #     interval: 1m30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
