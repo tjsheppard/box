@@ -1,16 +1,15 @@
 config/plex/*
-config/jellyfin/*
 config/sonarr/*
 config/radarr/*
 config/readarr/*
 config/deluge/*
-config/unifi-controller/*
-# config/dashy/*
 config/vpn/vpn.conf
 config/vpn/vpn.txt
 config/vpn/vpn.crt
 config/prowlarr/*
-config/pihole/*
+# config/jellyfin/*
+# config/filebrowser/*
+# config/dashy/*
 downloads/*
 media/*
 .env
