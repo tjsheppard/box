@@ -58,7 +58,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${CONFIG}/radarr:/config
       - ${DOWNLOADS}:/downloads
-      - ${MEDIA}/movies:/movies
+      - ${MEDIA}/films:/films
     network_mode: service:vpn
     depends_on:
       - vpn
@@ -75,7 +75,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${CONFIG}/sonarr:/config
       - ${DOWNLOADS}:/downloads
-      - ${MEDIA}/series:/series
+      - ${MEDIA}/shows:/shows
     network_mode: service:vpn
     depends_on:
       - vpn
@@ -106,7 +106,7 @@ services:
     devices:
       - /dev/dri:dev/dri # Add hardware transcoding for Intel CPU
   dashy:
-    image: lissy93/dashy
+    image: lissy93/dashy:latest
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -122,6 +122,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+  tailscale:
+    image: tailscale/tailscale:latest
+    privileged: true
+    restart: unless-stopped
+    command: tailscaled
+    cap_add:
+      - net_admin
+      - sys_module
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=0
+    volumes:
+      - ${CONFIG}/tailscale:/var/lib/tailscale # State data will be stored in this directory
+      - /dev/net/tun:/dev/net/tun # Required for tailscale to work
   # jellyfin:
   #   image: linuxserver/jellyfin:latest
   #   restart: unless-stopped
@@ -131,8 +146,8 @@ services:
   #     - TZ=${TZ}
   #   volumes:
   #     - ${CONFIG}/jellyfin:/config
-  #     - ${MEDIA}/movies:/data/movies
-  #     - ${MEDIA}/series:/data/series
+  #     - ${MEDIA}/films:/data/films
+  #     - ${MEDIA}/shows:/data/shows
   #   ports:
   #     - 8096:8096
   #     - 8920:8920

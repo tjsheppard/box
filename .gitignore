@@ -7,6 +7,7 @@ config/vpn/vpn.conf
 config/vpn/vpn.txt
 config/vpn/vpn.crt
 config/prowlarr/*
+config/tailscale/*
 # config/jellyfin/*
 # config/filebrowser/*
 # config/dashy/*
