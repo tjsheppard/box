@@ -1,25 +1,5 @@
 services:
-  vpn:
-    image: dperson/openvpn-client:latest
-    restart: unless-stopped
-    volumes:
-      - /dev/net:/dev/net:z
-      - ${CONFIG}/vpn:/vpn
-    ports:
-      - 8112:8112 # deluge
-      - 6881:6881 # deluge
-      - 6881:6881/udp # deluge
-      - 9696:9696 # prowlerr
-      - 8989:8989 # sonarr
-      - 7878:7878 # radarr
-      - 8787:8787 # readarr
-    cap_add:
-      - net_admin
-    security_opt:
-      - label:disable
-    sysctls:
-      - "net.ipv6.conf.all.disable_ipv6=0"
-    command: '-f "" -r 192.168.1.0/24'
+  # Download services
   deluge:
     image: linuxserver/deluge:latest
     restart: unless-stopped
@@ -30,9 +10,6 @@ services:
     volumes:
       - ${CONFIG}/deluge:/config
       - ${DOWNLOADS}:/downloads
-    network_mode: service:vpn
-    depends_on:
-      - vpn
   prowlarr:
     image: linuxserver/prowlarr:latest
     restart: unless-stopped
@@ -44,9 +21,6 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${CONFIG}/prowlarr:/config
-    network_mode: service:vpn
-    depends_on:
-      - vpn
   radarr:
     image: linuxserver/radarr:latest
     restart: unless-stopped
@@ -59,9 +33,7 @@ services:
       - ${CONFIG}/radarr:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/films:/films
-    network_mode: service:vpn
     depends_on:
-      - vpn
       - deluge
       - prowlarr
   sonarr:
@@ -76,35 +48,11 @@ services:
       - ${CONFIG}/sonarr:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/shows:/shows
-    network_mode: service:vpn
     depends_on:
-      - vpn
       - deluge
       - prowlarr
-  plex:
-    image: linuxserver/plex:latest
-    restart: unless-stopped
-    environment:
-      - TZ=${TZ}
-      - VERSION=latest
-      - PLEX_CLAIM=${PLEX_CLAIM}
-    volumes:
-      - ${CONFIG}/plex/db:/config
-      - ${MEDIA}:/data
-      - /dev/shm:/transcode # Use shared RAM disk for transcoding
-    ports:
-      - 32400:32400
-      # - 1900:1900/udp
-      # - 3005:3005
-      # - 5353:5353/udp
-      # - 8324:8324
-      # - 32410:32410/udp
-      # - 32412:32412/udp
-      # - 32413:32413/udp
-      # - 32414:32414/udp
-      # - 32469:32469
-    devices:
-      - /dev/dri:dev/dri # Add hardware transcoding for Intel CPU
+
+  # Dashboard
   dashy:
     image: lissy93/dashy:latest
     restart: unless-stopped
@@ -113,56 +61,67 @@ services:
       - UID=${PUID}
       - GID=${PGID}
     volumes:
-      - ${CONFIG}/dashy/config.yml:/app/public/conf.yml
+      - ${CONFIG}/dashy/config.yml:/user-data/conf.yml
     ports:
-      - 4000:80
+      - 4000:8080
     healthcheck:
-      test: [ 'CMD', 'node', '/app/services/healthcheck' ]
+      test: ["CMD", "node", "/app/services/healthcheck"]
       interval: 1m30s
       timeout: 10s
       retries: 3
       start_period: 40s
-  tailscale:
-    image: tailscale/tailscale:latest
-    privileged: true
+
+  # Reverse proxy + Tailscale
+  caddy:
+    build: ${CONFIG}/caddy
     restart: unless-stopped
-    command: tailscaled
     cap_add:
-      - net_admin
-      - sys_module
+      - NET_ADMIN
     environment:
       - TS_AUTHKEY=${TS_AUTHKEY}
-      - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=0
+      - DOMAIN=${DOMAIN:-}
+      - CF_API_TOKEN=${CF_API_TOKEN:-}
     volumes:
-      - ${CONFIG}/tailscale:/var/lib/tailscale # State data will be stored in this directory
-      - /dev/net/tun:/dev/net/tun # Required for tailscale to work
-  # jellyfin:
-  #   image: linuxserver/jellyfin:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #     - TZ=${TZ}
-  #   volumes:
-  #     - ${CONFIG}/jellyfin:/config
-  #     - ${MEDIA}/films:/data/films
-  #     - ${MEDIA}/shows:/data/shows
-  #   ports:
-  #     - 8096:8096
-  #     - 8920:8920
-  #     - 7359:7359/udp
-  #     - 1900:1900/udp
-  # filebrowser:
-  #   image: filebrowser/filebrowser:latest
-  #   restart: unless-stopped
-  #   environment:
-  #     - PUID=${PUID}
-  #     - PGID=${PGID}
-  #   volumes:
-  #     - ${CONFIG}:/srv/config
-  #     - ${CONFIG}/filebrowser:/config
-  #     - ${DOWNLOADS}:/srv/downloads
-  #     - ${MEDIA}:/srv/media
-  #   ports:
-  #     - 8080:80
+      - ${CONFIG}/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ${CONFIG}/caddy/data:/data
+      - ${CONFIG}/caddy/config:/config
+
+  # Media server
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG}/jellyfin:/config
+      - ${MEDIA}/films:/data/films
+      - ${MEDIA}/shows:/data/shows
+    ports:
+      - 8096:8096
+
+  # File management
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${CONFIG}:/srv/config
+      - ${CONFIG}/filebrowser:/config
+      - ${DOWNLOADS}:/srv/downloads
+      - ${MEDIA}:/srv/media
+    ports:
+      - 8080:80
+
+  # Container management
+  portainer:
+    image: portainer/portainer-ce:lts
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CONFIG}/portainer:/data
+    ports:
+      - 9000:9000

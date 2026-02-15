@@ -1,5 +1,7 @@
 ---
-# Page meta info, like heading, footer text and nav links
+# Replace <DOMAIN> below with your domain (e.g. example.com)
+# or your tailnet domain (e.g. tail12345.ts.net) if not using a custom domain
+
 pageInfo:
   title: Box
   description: Welcome to your new dashboard!
@@ -7,55 +9,64 @@ pageInfo:
     - title: GitHub
       path: https://github.com/tjsheppard/box
 
-# Optional app settings and configuration
 appConfig:
   theme: default
   layout: vertical
   iconSize: "large"
   language: "en"
 
-# Main content - An array of sections, each containing an array of items
 sections:
-  - name: Services
-    icon: fas fa-home
+  - name: Media
+    icon: fas fa-play
+    items:
+      - title: Jellyfin
+        description: Watch films and shows
+        icon: far fa-play
+        url: https://jellyfin.<DOMAIN>
+        target: newtab
+      - title: File Browser
+        description: Manage folders and files
+        icon: far fa-folder
+        url: https://files.<DOMAIN>
+        target: newtab
+  - name: Downloads
+    icon: fas fa-download
     items:
       - title: Deluge
         description: Torrent downloader
         icon: far fa-download
-        url: http://192.168.1.2:8112
+        url: https://deluge.<DOMAIN>
         target: newtab
       - title: Prowlarr
         description: Torrent indexer
         icon: far fa-database
-        url: http://192.168.1.2:9696
+        url: https://prowlarr.<DOMAIN>
         target: newtab
       - title: Sonarr
         description: Manage shows
         icon: far fa-tv
-        url: http://192.168.1.2:8989
+        url: https://sonarr.<DOMAIN>
         target: newtab
       - title: Radarr
         description: Manage films
         icon: far fa-film
-        url: http://192.168.1.2:7878
+        url: https://radarr.<DOMAIN>
         target: newtab
-      - title: Plex
-        description: Watch films and shows
-        icon: far fa-play
-        url: http://192.168.1.2:32400
+  - name: Management
+    icon: fas fa-cog
+    items:
+      - title: Portainer
+        description: Manage Docker containers
+        icon: far fa-box
+        url: https://portainer.<DOMAIN>
+        target: newtab
+      - title: Dashy
+        description: This dashboard
+        icon: far fa-home
+        url: https://dashy.<DOMAIN>
         target: newtab
       - title: Tailscale
         description: Remote connection
         icon: far fa-cloud
         url: https://login.tailscale.com/admin/machines
         target: newtab
-      # - title: Jellyfin
-      #   description: Watch movies and series
-      #   icon: far fa-play
-      #   url: http://box.local:8096
-      #   target: newtab
-      # - title: File browser
-      #   description: Manage folders and files
-      #   icon: far fa-folder
-      #   url: http://box.local:8080
-      #   target: newtab

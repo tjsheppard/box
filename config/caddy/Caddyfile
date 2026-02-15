@@ -1,0 +1,77 @@
+{
+	tailscale {
+		ephemeral false
+	}
+}
+
+# Media server
+jellyfin.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy jellyfin:8096
+}
+
+# Dashboard
+dashy.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy dashy:8080
+}
+
+# Container management
+portainer.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy portainer:9000
+}
+
+# File management
+files.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy filebrowser:80
+}
+
+# Torrent downloader
+deluge.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy {$DELUGE_ADDR:deluge:8112}
+}
+
+# Torrent indexer
+prowlarr.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy {$PROWLARR_ADDR:prowlarr:9696}
+}
+
+# Show management
+sonarr.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy {$SONARR_ADDR:sonarr:8989}
+}
+
+# Film management
+radarr.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	reverse_proxy {$RADARR_ADDR:radarr:7878}
+}
