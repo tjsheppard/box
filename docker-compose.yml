@@ -71,7 +71,7 @@ services:
       - UID=${PUID}
       - GID=${PGID}
     volumes:
-      - ${CONFIG}/dashy/config.yml:/user-data/conf.yml
+      - ${CONFIG}/dashy/config.yml:/app/user-data/conf.yml
     ports:
       - 4000:8080
     healthcheck:
