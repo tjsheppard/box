@@ -10,6 +10,8 @@ config/caddy/data/*
 config/caddy/config/*
 config/caddy/Caddyfile
 
+config/dashy/config.yml
+
 # Jellyfin runtime data (regenerated on start)
 config/jellyfin/*
 !config/jellyfin/.gitkeep
