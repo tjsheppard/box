@@ -10,6 +10,10 @@ services:
     volumes:
       - ${CONFIG}/deluge:/config
       - ${DOWNLOADS}:/downloads
+    ports:
+      - 8112:8112
+      - 6881:6881
+      - 6881:6881/udp
   prowlarr:
     image: linuxserver/prowlarr:latest
     restart: unless-stopped
@@ -21,6 +25,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${CONFIG}/prowlarr:/config
+    ports:
+      - 9696:9696
   radarr:
     image: linuxserver/radarr:latest
     restart: unless-stopped
@@ -33,6 +39,8 @@ services:
       - ${CONFIG}/radarr:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/films:/films
+    ports:
+      - 7878:7878
     depends_on:
       - deluge
       - prowlarr
@@ -48,6 +56,8 @@ services:
       - ${CONFIG}/sonarr:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/shows:/shows
+    ports:
+      - 8989:8989
     depends_on:
       - deluge
       - prowlarr
@@ -71,10 +81,11 @@ services:
       retries: 3
       start_period: 40s
 
-  # Reverse proxy + Tailscale
+  # Reverse proxy (Options B & C only)
   caddy:
     build: ${CONFIG}/caddy
     restart: unless-stopped
+    profiles: ["remote"]
     cap_add:
       - NET_ADMIN
     environment:

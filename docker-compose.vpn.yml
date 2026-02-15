@@ -26,21 +26,25 @@ services:
 
   # Override download services to route through VPN
   deluge:
+    ports: !reset []
     network_mode: service:gluetun
     depends_on:
       - gluetun
 
   prowlarr:
+    ports: !reset []
     network_mode: service:gluetun
     depends_on:
       - gluetun
 
   radarr:
+    ports: !reset []
     network_mode: service:gluetun
     depends_on:
       - gluetun
 
   sonarr:
+    ports: !reset []
     network_mode: service:gluetun
     depends_on:
       - gluetun

@@ -15,39 +15,82 @@ Get movies and series. That's it. Using open-source technologies.
 | [Caddy + Tailscale](https://github.com/tailscale/caddy-tailscale) | HTTPS reverse proxy over Tailscale |
 | [Gluetun](https://github.com/qdm12/gluetun)                       | VPN client (Mullvad WireGuard)     |
 
-## Step 1 — Tailscale
+## Step 1 — Basic setup
 
-1. [Create a Tailscale account](https://login.tailscale.com/start) (free tier works fine)
-2. Go to [Settings → Keys](https://login.tailscale.com/admin/settings/keys) and generate a **reusable auth key**
-3. Paste it into `.env` as `TS_AUTHKEY`
+1. Copy `.env.example` to `.env`:
+   ```
+   cp .env.example .env
+   ```
+2. Check your timezone (`TZ`), `DOWNLOADS` and `MEDIA` paths are correct
+3. Check `PUID` and `PGID` match your user (find with `id $USER`)
 
 ## Step 2 — Choose your access method
 
-### Option A: Custom domain (Cloudflare)
+### Option A: Local only
 
-Use this if you own a domain on Cloudflare. Services will be at `jellyfin.yourdomain.com`, etc.
+Keep it simple. Services are available at `localhost` ports on the machine running Box. No Tailscale or Cloudflare needed.
 
-1. Set `DOMAIN` in `.env` (e.g. `example.com`)
-2. Create a [Cloudflare API token](https://dash.cloudflare.com/profile/api-tokens) with **Zone → DNS → Edit** permissions
-3. Set `CF_API_TOKEN` in `.env`
-4. The default `config/caddy/Caddyfile` is already configured for this mode
-5. In Cloudflare DNS, add a **wildcard A record**:
-   - **Name:** `*`
-   - **Content:** your Tailscale IP (find it after first run in the [admin panel](https://login.tailscale.com/admin/machines))
-   - **Proxy status:** DNS only (grey cloud — do NOT proxy)
-6. Open `config/dashy/config.yml` and replace all `<DOMAIN>` with your domain
+No additional configuration needed — just build and start:
 
-### Option B: Tailscale domain only
+```
+docker compose up -d --build
+```
 
-Use this if you don't have a custom domain. Services will be at `<service>.<tailnet>.ts.net`.
+### Option B: Tailscale (remote access)
 
-1. Copy the Tailscale Caddyfile:
+Access services locally AND remotely via Tailscale. Each service gets its own Tailscale node (e.g. `jellyfin.<tailnet>.ts.net`).
+
+1. [Create a Tailscale account](https://login.tailscale.com/start) (free tier works fine)
+2. Go to [Settings → Keys](https://login.tailscale.com/admin/settings/keys) and generate a **reusable auth key**
+3. Set `TS_AUTHKEY` in `.env`
+4. Set `TS_DOMAIN` in `.env` (found at [DNS settings](https://login.tailscale.com/admin/dns), e.g. `tail12345.ts.net`)
+5. Copy the Tailscale Caddyfile:
    ```
    cp config/caddy/Caddyfile.tailscale config/caddy/Caddyfile
    ```
-2. Find your **tailnet domain** at [DNS settings](https://login.tailscale.com/admin/dns) (e.g. `tail12345.ts.net`)
-3. Set `TS_DOMAIN` in `.env`
-4. Open `config/dashy/config.yml` and replace all `<DOMAIN>` with your tailnet domain
+6. Enable remote access in `.env`:
+   ```
+   COMPOSE_PROFILES=remote
+   ```
+7. Generate the Dashy dashboard config:
+   ```
+   ./setup-dashy.sh
+   ```
+8. Build and start:
+   ```
+   docker compose up -d --build
+   ```
+
+### Option C: Cloudflare + Tailscale (custom domain)
+
+Access all services via your own domain (e.g. `jellyfin.example.com`), both locally and remotely via Tailscale.
+
+1. [Create a Tailscale account](https://login.tailscale.com/start), generate a **reusable auth key**, set `TS_AUTHKEY` in `.env`
+2. Set `TS_DOMAIN` in `.env` (found at [DNS settings](https://login.tailscale.com/admin/dns), e.g. `tail12345.ts.net`)
+3. Set `DOMAIN` in `.env` (e.g. `example.com`)
+4. Create a [Cloudflare API token](https://dash.cloudflare.com/profile/api-tokens) with **Zone → DNS → Edit** permissions
+5. Set `CF_API_TOKEN` in `.env`
+6. Set `CF_ZONE_ID` in `.env` — found on your domain's overview page in the [Cloudflare dashboard](https://dash.cloudflare.com) (right sidebar, under **API**)
+7. Copy the Cloudflare Caddyfile:
+   ```
+   cp config/caddy/Caddyfile.cloudflare config/caddy/Caddyfile
+   ```
+8. Enable remote access in `.env`:
+   ```
+   COMPOSE_PROFILES=remote
+   ```
+9. Create the wildcard DNS record (auto-detects your Tailscale IP):
+   ```
+   ./setup-dns.sh
+   ```
+10. Generate the Dashy dashboard config (uses `DOMAIN` with `TS_DOMAIN` as fallback):
+    ```
+    ./setup-dashy.sh
+    ```
+11. Build and start:
+    ```
+    docker compose up -d --build
+    ```
 
 ## Step 3 — Optional: Mullvad WireGuard VPN
 
@@ -64,30 +107,18 @@ Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
    COMPOSE_FILE=docker-compose.yml:docker-compose.vpn.yml
    ```
 
-## Step 4 — Configure and run
+## Accessing your services
 
-1. Copy `.env.example` to `.env` and fill in your values:
-   ```
-   cp .env.example .env
-   ```
-2. Check your timezone, PUID/PGID, and media paths are correct
-3. Build and start all containers:
-   ```
-   docker compose up -d --build
-   ```
-
-## Step 5 — Access your services
-
-| Service      | Custom domain                      | Tailscale domain                     | Local            |
-| ------------ | ---------------------------------- | ------------------------------------ | ---------------- |
-| Jellyfin     | `https://jellyfin.yourdomain.com`  | `https://jellyfin.<tailnet>.ts.net`  | `localhost:8096` |
-| Dashy        | `https://dashy.yourdomain.com`     | `https://dashy.<tailnet>.ts.net`     | `localhost:4000` |
-| Portainer    | `https://portainer.yourdomain.com` | `https://portainer.<tailnet>.ts.net` | `localhost:9000` |
-| File Browser | `https://files.yourdomain.com`     | `https://files.<tailnet>.ts.net`     | `localhost:8080` |
-| Deluge       | `https://deluge.yourdomain.com`    | `https://deluge.<tailnet>.ts.net`    | `localhost:8112` |
-| Prowlarr     | `https://prowlarr.yourdomain.com`  | `https://prowlarr.<tailnet>.ts.net`  | `localhost:9696` |
-| Sonarr       | `https://sonarr.yourdomain.com`    | `https://sonarr.<tailnet>.ts.net`    | `localhost:8989` |
-| Radarr       | `https://radarr.yourdomain.com`    | `https://radarr.<tailnet>.ts.net`    | `localhost:7878` |
+| Service      | Local            | Tailscale (Option B)                 | Custom domain (Option C)           |
+| ------------ | ---------------- | ------------------------------------ | ---------------------------------- |
+| Jellyfin     | `localhost:8096` | `https://jellyfin.<tailnet>.ts.net`  | `https://jellyfin.yourdomain.com`  |
+| Dashy        | `localhost:4000` | `https://dashy.<tailnet>.ts.net`     | `https://dashy.yourdomain.com`     |
+| Portainer    | `localhost:9000` | `https://portainer.<tailnet>.ts.net` | `https://portainer.yourdomain.com` |
+| File Browser | `localhost:8080` | `https://files.<tailnet>.ts.net`     | `https://files.yourdomain.com`     |
+| Deluge       | `localhost:8112` | `https://deluge.<tailnet>.ts.net`    | `https://deluge.yourdomain.com`    |
+| Prowlarr     | `localhost:9696` | `https://prowlarr.<tailnet>.ts.net`  | `https://prowlarr.yourdomain.com`  |
+| Sonarr       | `localhost:8989` | `https://sonarr.<tailnet>.ts.net`    | `https://sonarr.yourdomain.com`    |
+| Radarr       | `localhost:7878` | `https://radarr.<tailnet>.ts.net`    | `https://radarr.yourdomain.com`    |
 
 ## Jellyfin library cache
 
