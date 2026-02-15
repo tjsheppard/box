@@ -17,12 +17,12 @@ sections:
     icon: fas fa-play
     items:
       - title: Jellyfin
-        description: Watch films and shows
+        description: "<JELLYFIN_USER> / <JELLYFIN_PASS>"
         icon: far fa-play
         url: https://jellyfin.<DOMAIN>
         target: newtab
       - title: File Browser
-        description: Manage folders and files
+        description: "<FILEBROWSER_USER> / <FILEBROWSER_PASS>"
         icon: far fa-folder
         url: https://files.<DOMAIN>
         target: newtab
@@ -30,22 +30,22 @@ sections:
     icon: fas fa-download
     items:
       - title: Deluge
-        description: Torrent downloader
+        description: "<DELUGE_USER> / <DELUGE_PASS>"
         icon: far fa-download
         url: https://deluge.<DOMAIN>
         target: newtab
       - title: Prowlarr
-        description: Torrent indexer
+        description: "<PROWLARR_USER> / <PROWLARR_PASS>"
         icon: far fa-database
         url: https://prowlarr.<DOMAIN>
         target: newtab
       - title: Sonarr
-        description: Manage shows
+        description: "<SONARR_USER> / <SONARR_PASS>"
         icon: far fa-tv
         url: https://sonarr.<DOMAIN>
         target: newtab
       - title: Radarr
-        description: Manage films
+        description: "<RADARR_USER> / <RADARR_PASS>"
         icon: far fa-film
         url: https://radarr.<DOMAIN>
         target: newtab
@@ -53,7 +53,7 @@ sections:
     icon: fas fa-cog
     items:
       - title: Portainer
-        description: Manage Docker containers
+        description: "<PORTAINER_USER> / <PORTAINER_PASS>"
         icon: far fa-box
         url: https://portainer.<DOMAIN>
         target: newtab
@@ -73,30 +73,37 @@ sections:
       collapsed: true
     items:
       - title: Jellyfin
+        description: "<JELLYFIN_USER> / <JELLYFIN_PASS>"
         icon: far fa-play
         url: https://jellyfin.<TS_DOMAIN>
         target: newtab
       - title: File Browser
+        description: "<FILEBROWSER_USER> / <FILEBROWSER_PASS>"
         icon: far fa-folder
         url: https://files.<TS_DOMAIN>
         target: newtab
       - title: Deluge
+        description: "<DELUGE_USER> / <DELUGE_PASS>"
         icon: far fa-download
         url: https://deluge.<TS_DOMAIN>
         target: newtab
       - title: Prowlarr
+        description: "<PROWLARR_USER> / <PROWLARR_PASS>"
         icon: far fa-database
         url: https://prowlarr.<TS_DOMAIN>
         target: newtab
       - title: Sonarr
+        description: "<SONARR_USER> / <SONARR_PASS>"
         icon: far fa-tv
         url: https://sonarr.<TS_DOMAIN>
         target: newtab
       - title: Radarr
+        description: "<RADARR_USER> / <RADARR_PASS>"
         icon: far fa-film
         url: https://radarr.<TS_DOMAIN>
         target: newtab
       - title: Portainer
+        description: "<PORTAINER_USER> / <PORTAINER_PASS>"
         icon: far fa-box
         url: https://portainer.<TS_DOMAIN>
         target: newtab

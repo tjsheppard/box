@@ -55,6 +55,16 @@ cp "$TEMPLATE" "$OUTPUT"
 # Replace primary domain placeholders
 sed -i '' "s/<DOMAIN>/${PRIMARY}/g" "$OUTPUT"
 
+# Replace credential placeholders
+for VAR in DELUGE_USER DELUGE_PASS PROWLARR_USER PROWLARR_PASS SONARR_USER SONARR_PASS \
+           RADARR_USER RADARR_PASS JELLYFIN_USER JELLYFIN_PASS FILEBROWSER_USER FILEBROWSER_PASS \
+           PORTAINER_USER PORTAINER_PASS; do
+  VAL="${!VAR:-}"
+  if [[ -n "$VAL" ]]; then
+    sed -i '' "s/<${VAR}>/${VAL}/g" "$OUTPUT"
+  fi
+done
+
 # Handle Tailscale fallback section
 if [[ -n "$TS_FALLBACK" && "$TS_FALLBACK" != "$PRIMARY" ]]; then
   # Option C: both domains — fill in fallback links

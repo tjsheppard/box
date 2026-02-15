@@ -15,6 +15,11 @@ Get movies and series. That's it. Using open-source technologies.
 | [Caddy + Tailscale](https://github.com/tailscale/caddy-tailscale) | HTTPS reverse proxy over Tailscale |
 | [Gluetun](https://github.com/qdm12/gluetun)                       | VPN client (Mullvad WireGuard)     |
 
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (included with Docker Desktop)
+- [GitHub Desktop](https://desktop.github.com/) is recommended for cloning and managing the repository
+
 ## Step 1 — Basic setup
 
 1. Copy `.env.example` to `.env`:
