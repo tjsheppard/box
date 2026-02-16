@@ -14,7 +14,7 @@ jellyfin.{$DOMAIN} {
 }
 
 # Dashboard
-homepage.{$DOMAIN} {
+{$DOMAIN} {
 	bind tailscale/box
 	tls {
 		dns cloudflare {$CF_API_TOKEN}

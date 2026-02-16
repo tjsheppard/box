@@ -56,19 +56,15 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
    ```
    cp config/caddy/Caddyfile.cloudflare config/caddy/Caddyfile
    ```
-9. Enable remote access in `.env`:
-   ```
-   COMPOSE_PROFILES=remote
-   ```
-10. Create the wildcard DNS record (auto-detects your Tailscale IP):
+9. Create the wildcard DNS record (auto-detects your Tailscale IP):
     ```
     ./setup-dns.sh
     ```
-11. Generate the Homepage dashboard config:
+10. Generate the Homepage dashboard config:
     ```
     ./setup-homepage.sh
     ```
-12. Build and start:
+11. Build and start:
     ```
     docker compose up -d --build
     ```
@@ -93,7 +89,7 @@ Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
 | Service      | Local            | Remote (Option B)                  |
 | ------------ | ---------------- | ---------------------------------- |
 | Jellyfin     | `localhost:8096` | `https://jellyfin.yourdomain.com`  |
-| Homepage     | `localhost:3000` | `https://homepage.yourdomain.com`  |
+| Homepage     | `localhost:3000` | `https://yourdomain.com`           |
 | Portainer    | `localhost:9000` | `https://portainer.yourdomain.com` |
 | File Browser | `localhost:8080` | `https://files.yourdomain.com`     |
 | Deluge       | `localhost:8112` | `https://deluge.yourdomain.com`    |

@@ -60,7 +60,7 @@
           key: <PORTAINER_API_KEY>
     - Homepage:
         icon: homepage.svg
-        href: https://homepage.<DOMAIN>
+        href: https://<DOMAIN>
         description: This dashboard
     - Tailscale:
         icon: tailscale.svg

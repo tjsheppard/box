@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# setup-dns.sh — Create or update a wildcard A record in Cloudflare DNS
+# setup-dns.sh — Create or update DNS A records in Cloudflare
 #
 # Reads DOMAIN, CF_API_TOKEN, and CF_ZONE_ID from .env, auto-detects the
-# Tailscale IPv4 address, then ensures *.DOMAIN points to it.
+# Tailscale IPv4 address, then ensures both DOMAIN and *.DOMAIN point to it.
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,71 +57,89 @@ echo "  Tailscale IP: ${TAILSCALE_IP}"
 
 # --- Cloudflare API ---
 CF_API="https://api.cloudflare.com/client/v4"
-RECORD_NAME="*.${DOMAIN}"
 
 auth_header="Authorization: Bearer ${CF_API_TOKEN}"
 content_type="Content-Type: application/json"
 
 echo "Using Zone ID: ${CF_ZONE_ID}"
 
-# Check for existing wildcard A record
-echo "Checking for existing DNS record: ${RECORD_NAME}..."
-response="$(curl -s -X GET \
-  "${CF_API}/zones/${CF_ZONE_ID}/dns_records?type=A&name=${RECORD_NAME}" \
-  -H "$auth_header" \
-  -H "$content_type")"
+# --- Upsert a single A record ---
+# Usage: upsert_record <display_name> <dns_name>
+#   display_name: shown in output (e.g. "*.example.com")
+#   dns_name:     the "name" field sent to Cloudflare API (e.g. "*" or "@")
+upsert_record() {
+  local display_name="$1"
+  local dns_name="$2"
 
-success="$(echo "$response" | jq -r '.success')"
-if [[ "$success" != "true" ]]; then
-  echo "Error: Cloudflare API request failed."
-  echo "$response" | jq '.errors' 2>/dev/null || echo "$response"
-  exit 1
-fi
-
-record_count="$(echo "$response" | jq '.result | length')"
-
-if [[ "$record_count" -gt 0 ]]; then
-  # Record exists — check if update is needed
-  record_id="$(echo "$response" | jq -r '.result[0].id')"
-  current_ip="$(echo "$response" | jq -r '.result[0].content')"
-
-  if [[ "$current_ip" == "$TAILSCALE_IP" ]]; then
-    echo "DNS record already exists and is up to date."
-    echo "  ${RECORD_NAME} → ${TAILSCALE_IP}"
-    exit 0
-  fi
-
-  # Update existing record
-  echo "Updating existing record (${current_ip} → ${TAILSCALE_IP})..."
-  update_response="$(curl -s -X PUT \
-    "${CF_API}/zones/${CF_ZONE_ID}/dns_records/${record_id}" \
+  echo ""
+  echo "Checking for existing DNS record: ${display_name}..."
+  local response
+  response="$(curl -s -X GET \
+    "${CF_API}/zones/${CF_ZONE_ID}/dns_records?type=A&name=${display_name}" \
     -H "$auth_header" \
-    -H "$content_type" \
-    -d "{\"type\":\"A\",\"name\":\"*\",\"content\":\"${TAILSCALE_IP}\",\"ttl\":1,\"proxied\":false}")"
+    -H "$content_type")"
 
-  if [[ "$(echo "$update_response" | jq -r '.success')" == "true" ]]; then
-    echo "DNS record updated successfully."
-    echo "  ${RECORD_NAME} → ${TAILSCALE_IP}"
-  else
-    echo "Error: Failed to update DNS record."
-    echo "$update_response" | jq '.errors' 2>/dev/null || echo "$update_response"
-    exit 1
+  local success
+  success="$(echo "$response" | jq -r '.success')"
+  if [[ "$success" != "true" ]]; then
+    echo "Error: Cloudflare API request failed."
+    echo "$response" | jq '.errors' 2>/dev/null || echo "$response"
+    return 1
   fi
-else
-  # Create new record
-  echo "Creating wildcard A record..."
-  create_response="$(curl -s -X POST \
-    "${CF_API}/zones/${CF_ZONE_ID}/dns_records" \
-    -H "$auth_header" \
-    -H "$content_type" \
-    -d "{\"type\":\"A\",\"name\":\"*\",\"content\":\"${TAILSCALE_IP}\",\"ttl\":1,\"proxied\":false}")"
 
-  if [[ "$(echo "$create_response" | jq -r '.success')" == "true" ]]; then
-    echo "DNS record created successfully."
-    echo "  ${RECORD_NAME} → ${TAILSCALE_IP}"
+  local record_count
+  record_count="$(echo "$response" | jq '.result | length')"
+
+  if [[ "$record_count" -gt 0 ]]; then
+    # Record exists — check if update is needed
+    local record_id current_ip
+    record_id="$(echo "$response" | jq -r '.result[0].id')"
+    current_ip="$(echo "$response" | jq -r '.result[0].content')"
+
+    if [[ "$current_ip" == "$TAILSCALE_IP" ]]; then
+      echo "  Already up to date: ${display_name} → ${TAILSCALE_IP}"
+      return 0
+    fi
+
+    # Update existing record
+    echo "  Updating (${current_ip} → ${TAILSCALE_IP})..."
+    local update_response
+    update_response="$(curl -s -X PUT \
+      "${CF_API}/zones/${CF_ZONE_ID}/dns_records/${record_id}" \
+      -H "$auth_header" \
+      -H "$content_type" \
+      -d "{\"type\":\"A\",\"name\":\"${dns_name}\",\"content\":\"${TAILSCALE_IP}\",\"ttl\":1,\"proxied\":false}")"
+
+    if [[ "$(echo "$update_response" | jq -r '.success')" == "true" ]]; then
+      echo "  Updated: ${display_name} → ${TAILSCALE_IP}"
+    else
+      echo "Error: Failed to update DNS record."
+      echo "$update_response" | jq '.errors' 2>/dev/null || echo "$update_response"
+      return 1
+    fi
   else
-    echo "Error: Failed to create DNS record."
-    echo "$create_response" | jq '.errors' 2>/dev/null || echo "$create_response"
-    exit 1
+    # Create new record
+    echo "  Creating A record..."
+    local create_response
+    create_response="$(curl -s -X POST \
+      "${CF_API}/zones/${CF_ZONE_ID}/dns_records" \
+      -H "$auth_header" \
+      -H "$content_type" \
+      -d "{\"type\":\"A\",\"name\":\"${dns_name}\",\"content\":\"${TAILSCALE_IP}\",\"ttl\":1,\"proxied\":false}")"
+
+    if [[ "$(echo "$create_response" | jq -r '.success')" == "true" ]]; then
+      echo "  Created: ${display_name} → ${TAILSCALE_IP}"
+    else
+      echo "Error: Failed to create DNS record."
+      echo "$create_response" | jq '.errors' 2>/dev/null || echo "$create_response"
+      return 1
+    fi
   fi
-fi
+}
+
+# --- Create/update both records ---
+upsert_record "${DOMAIN}" "@"
+upsert_record "*.${DOMAIN}" "*"
+
+echo ""
+echo "Done."

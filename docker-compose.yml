@@ -69,17 +69,17 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN:-localhost}
     volumes:
       - ${CONFIG}/homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - 3000:3000
 
-  # Reverse proxy (Option B only)
+  # Reverse proxy (requires TS_AUTHKEY, DOMAIN, CF_API_TOKEN, CF_ZONE_ID)
   caddy:
     build: ${CONFIG}/caddy
     restart: unless-stopped
-    profiles: ["remote"]
     cap_add:
       - NET_ADMIN
     environment:
