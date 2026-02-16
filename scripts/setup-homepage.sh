@@ -13,9 +13,10 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE_DIR="${SCRIPT_DIR}/apps/homepage/config"
-OUTPUT_DIR="${SCRIPT_DIR}/apps/homepage/data"
-ENV_FILE="${SCRIPT_DIR}/.env"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TEMPLATE_DIR="${ROOT_DIR}/apps/homepage/config"
+OUTPUT_DIR="${ROOT_DIR}/apps/homepage/data"
+ENV_FILE="${ROOT_DIR}/.env"
 
 # --- Load .env ---
 if [[ -f "$ENV_FILE" ]]; then

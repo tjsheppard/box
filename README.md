@@ -59,14 +59,14 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
    ```
 10. Generate the Homepage dashboard config:
     ```
-    ./setup-homepage.sh
+    ./scripts/setup-homepage.sh
     ```
 11. Build and start:
     ```
     docker compose up -d --build
     ```
 
-> **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "box", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./setup-dns.sh`.
+> **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "box", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./scripts/setup-dns.sh`.
 
 ## Step 3 — Optional: Mullvad WireGuard VPN
 
