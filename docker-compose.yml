@@ -8,7 +8,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${CONFIG}/deluge:/config
+      - ${APPS}/deluge/data:/config
       - ${DOWNLOADS}:/downloads
     ports:
       - 8112:8112
@@ -24,7 +24,7 @@ services:
       - UMASK=002
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${CONFIG}/prowlarr:/config
+      - ${APPS}/prowlarr/data:/config
     ports:
       - 9696:9696
   radarr:
@@ -36,7 +36,7 @@ services:
       - TZ=${TZ}
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${CONFIG}/radarr:/config
+      - ${APPS}/radarr/data:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/films:/films
     ports:
@@ -53,7 +53,7 @@ services:
       - TZ=${TZ}
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${CONFIG}/sonarr:/config
+      - ${APPS}/sonarr/data:/config
       - ${DOWNLOADS}:/downloads
       - ${MEDIA}/shows:/shows
     ports:
@@ -71,14 +71,14 @@ services:
       - PGID=${PGID}
       - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN:-localhost}
     volumes:
-      - ${CONFIG}/homepage:/app/config
+      - ${APPS}/homepage/data:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - 3000:3000
 
   # Reverse proxy (requires TS_AUTHKEY, DOMAIN, CF_API_TOKEN, CF_ZONE_ID)
   caddy:
-    build: ${CONFIG}/caddy
+    build: ${APPS}/caddy/config
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -89,9 +89,9 @@ services:
       - CF_ZONE_ID=${CF_ZONE_ID:-}
       - TS_API_KEY=${TS_API_KEY:-}
     volumes:
-      - ${CONFIG}/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ${CONFIG}/caddy/data:/data
-      - ${CONFIG}/caddy/config:/config
+      - ${APPS}/caddy/data/Caddyfile:/etc/caddy/Caddyfile
+      - ${APPS}/caddy/data:/data
+      - ${APPS}/caddy/data/tailscale-state:/config
 
   # Media server
   jellyfin:
@@ -102,7 +102,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${CONFIG}/jellyfin:/config
+      - ${APPS}/jellyfin/data:/config
       - ${MEDIA}/films:/data/films
       - ${MEDIA}/shows:/data/shows
     ports:
@@ -116,8 +116,9 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
     volumes:
-      - ${CONFIG}:/srv/config
-      - ${CONFIG}/filebrowser:/config
+      - ${APPS}:/srv/apps
+      - ${APPS}/filebrowser/data:/config
+      - ${APPS}/filebrowser/config/settings.json:/config/settings.json
       - ${DOWNLOADS}:/srv/downloads
       - ${MEDIA}:/srv/media
     ports:
@@ -129,6 +130,6 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${CONFIG}/portainer:/data
+      - ${APPS}/portainer/data:/data
     ports:
       - 9000:9000

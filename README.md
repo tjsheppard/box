@@ -55,7 +55,7 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
 8. Set `CF_ZONE_ID` in `.env` — found on your domain's overview page in the [Cloudflare dashboard](https://dash.cloudflare.com) (right sidebar, under **API**)
 9. Copy the Caddyfile:
    ```
-   cp config/caddy/Caddyfile.cloudflare config/caddy/Caddyfile
+   cp apps/caddy/config/Caddyfile.cloudflare apps/caddy/data/Caddyfile
    ```
 10. Generate the Homepage dashboard config:
     ```
@@ -98,7 +98,7 @@ Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
 
 ## Jellyfin library cache
 
-The Jellyfin config directory (`config/jellyfin/`) is **not** gitignored by default, so your library metadata cache is committable. This means you won't have to rebuild the library on a fresh clone. If you'd rather not commit it, uncomment the `config/jellyfin/*` line in `.gitignore`.
+The Jellyfin data directory (`apps/jellyfin/data/`) is gitignored by default, so your library metadata is not committed. If you'd like to commit it for portability, remove the `apps/*/data/` rule from `.gitignore` and add back specific ignores for the other apps.
 
 ## Sharing with friends
 

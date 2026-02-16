@@ -13,7 +13,8 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="${SCRIPT_DIR}/config/homepage"
+TEMPLATE_DIR="${SCRIPT_DIR}/apps/homepage/config"
+OUTPUT_DIR="${SCRIPT_DIR}/apps/homepage/data"
 ENV_FILE="${SCRIPT_DIR}/.env"
 
 # --- Load .env ---
@@ -38,16 +39,19 @@ fi
 
 # --- Check templates exist ---
 for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.template; do
-  if [[ ! -f "${CONFIG_DIR}/${tmpl}" ]]; then
-    echo "Error: Template not found at ${CONFIG_DIR}/${tmpl}"
+  if [[ ! -f "${TEMPLATE_DIR}/${tmpl}" ]]; then
+    echo "Error: Template not found at ${TEMPLATE_DIR}/${tmpl}"
     exit 1
   fi
 done
 
+# --- Ensure output directory exists ---
+mkdir -p "${OUTPUT_DIR}"
+
 # --- Generate config files from templates ---
 for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.template; do
-  output="${CONFIG_DIR}/${tmpl%.template}"
-  cp "${CONFIG_DIR}/${tmpl}" "$output"
+  output="${OUTPUT_DIR}/${tmpl%.template}"
+  cp "${TEMPLATE_DIR}/${tmpl}" "$output"
 
   # Replace domain placeholder
   sed -i '' "s/<DOMAIN>/${DOMAIN}/g" "$output"
@@ -61,7 +65,14 @@ for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.templat
   done
 done
 
-echo "Homepage config generated in: ${CONFIG_DIR}/"
+# --- Copy static config files to data directory ---
+for static in docker.yaml widgets.yaml; do
+  if [[ -f "${TEMPLATE_DIR}/${static}" ]]; then
+    cp "${TEMPLATE_DIR}/${static}" "${OUTPUT_DIR}/${static}"
+  fi
+done
+
+echo "Homepage config generated in: ${OUTPUT_DIR}/"
 echo "  Domain: *.${DOMAIN}"
 echo ""
 echo "Files created:"
