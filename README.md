@@ -11,7 +11,7 @@ Get movies and series. That's it. Using open-source technologies.
 | [Radarr](https://github.com/Radarr/Radarr)                        | Film manager                       |
 | [File Browser](https://github.com/filebrowser/filebrowser)        | File management                    |
 | [Portainer](https://github.com/portainer/portainer)               | Container management               |
-| [Dashy](https://github.com/Lissy93/dashy)                         | Dashboard                          |
+| [Homepage](https://github.com/gethomepage/homepage)               | Dashboard                          |
 | [Caddy + Tailscale](https://github.com/tailscale/caddy-tailscale) | HTTPS reverse proxy over Tailscale |
 | [Gluetun](https://github.com/qdm12/gluetun)                       | VPN client (Mullvad WireGuard)     |
 
@@ -64,9 +64,9 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
     ```
     ./setup-dns.sh
     ```
-11. Generate the Dashy dashboard config:
+11. Generate the Homepage dashboard config:
     ```
-    ./setup-dashy.sh
+    ./setup-homepage.sh
     ```
 12. Build and start:
     ```
@@ -93,7 +93,7 @@ Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
 | Service      | Local            | Remote (Option B)                  |
 | ------------ | ---------------- | ---------------------------------- |
 | Jellyfin     | `localhost:8096` | `https://jellyfin.yourdomain.com`  |
-| Dashy        | `localhost:4000` | `https://dashy.yourdomain.com`     |
+| Homepage     | `localhost:3000` | `https://homepage.yourdomain.com`  |
 | Portainer    | `localhost:9000` | `https://portainer.yourdomain.com` |
 | File Browser | `localhost:8080` | `https://files.yourdomain.com`     |
 | Deluge       | `localhost:8112` | `https://deluge.yourdomain.com`    |

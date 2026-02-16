@@ -63,23 +63,17 @@ services:
       - prowlarr
 
   # Dashboard
-  dashy:
-    image: lissy93/dashy:latest
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - UID=${PUID}
-      - GID=${PGID}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - ${CONFIG}/dashy/config.yml:/app/user-data/conf.yml
+      - ${CONFIG}/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
-      - 4000:8080
-    healthcheck:
-      test: ["CMD", "node", "/app/services/healthcheck"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - 3000:3000
 
   # Reverse proxy (Option B only)
   caddy:

@@ -1,0 +1,21 @@
+---
+title: Box
+
+background:
+  image: ""
+
+theme: dark
+color: slate
+
+useEqualHeights: true
+
+layout:
+  Media:
+    style: row
+    columns: 2
+  Downloads:
+    style: row
+    columns: 4
+  Management:
+    style: row
+    columns: 3

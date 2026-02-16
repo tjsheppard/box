@@ -14,12 +14,12 @@ jellyfin.{$DOMAIN} {
 }
 
 # Dashboard
-dashy.{$DOMAIN} {
+homepage.{$DOMAIN} {
 	bind tailscale/box
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
-	reverse_proxy dashy:8080
+	reverse_proxy homepage:3000
 }
 
 # Container management
