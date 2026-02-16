@@ -86,6 +86,8 @@ services:
       - TS_AUTHKEY=${TS_AUTHKEY}
       - DOMAIN=${DOMAIN:-}
       - CF_API_TOKEN=${CF_API_TOKEN:-}
+      - CF_ZONE_ID=${CF_ZONE_ID:-}
+      - TS_API_KEY=${TS_API_KEY:-}
     volumes:
       - ${CONFIG}/caddy/Caddyfile:/etc/caddy/Caddyfile
       - ${CONFIG}/caddy/data:/data

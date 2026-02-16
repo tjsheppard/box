@@ -48,18 +48,15 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
 1. [Create a Tailscale account](https://login.tailscale.com/start) (free tier works fine)
 2. Go to [Settings → Keys](https://login.tailscale.com/admin/settings/keys) and generate a **reusable auth key**
 3. Set `TS_AUTHKEY` in `.env`
-4. Set `DOMAIN` in `.env` (e.g. `example.com`)
-5. Create a [Cloudflare API token](https://dash.cloudflare.com/profile/api-tokens) with **Zone → DNS → Edit** permissions
-6. Set `CF_API_TOKEN` in `.env`
-7. Set `CF_ZONE_ID` in `.env` — found on your domain's overview page in the [Cloudflare dashboard](https://dash.cloudflare.com) (right sidebar, under **API**)
-8. Copy the Caddyfile:
+4. Generate a Tailscale **API access token** at [Settings → Keys](https://login.tailscale.com/admin/settings/keys) and set `TS_API_KEY` in `.env`
+5. Set `DOMAIN` in `.env` (e.g. `example.com`)
+6. Create a [Cloudflare API token](https://dash.cloudflare.com/profile/api-tokens) with **Zone → DNS → Edit** permissions
+7. Set `CF_API_TOKEN` in `.env`
+8. Set `CF_ZONE_ID` in `.env` — found on your domain's overview page in the [Cloudflare dashboard](https://dash.cloudflare.com) (right sidebar, under **API**)
+9. Copy the Caddyfile:
    ```
    cp config/caddy/Caddyfile.cloudflare config/caddy/Caddyfile
    ```
-9. Create the wildcard DNS record (auto-detects your Tailscale IP):
-    ```
-    ./setup-dns.sh
-    ```
 10. Generate the Homepage dashboard config:
     ```
     ./setup-homepage.sh
@@ -68,6 +65,8 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
     ```
     docker compose up -d --build
     ```
+
+> **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "box", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./setup-dns.sh`.
 
 ## Step 3 — Optional: Mullvad WireGuard VPN
 

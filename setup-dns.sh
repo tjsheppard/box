@@ -4,8 +4,13 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # setup-dns.sh — Create or update DNS A records in Cloudflare
 #
-# Reads DOMAIN, CF_API_TOKEN, and CF_ZONE_ID from .env, auto-detects the
-# Tailscale IPv4 address, then ensures both DOMAIN and *.DOMAIN point to it.
+# Reads DOMAIN, CF_API_TOKEN, and CF_ZONE_ID from .env, finds the "box"
+# Tailscale node's IPv4 address, then ensures both DOMAIN and *.DOMAIN
+# point to it.
+#
+# NOTE: DNS records are normally created automatically when the Caddy
+# container starts. This script is provided as a manual fallback for
+# updating records after the container is already running.
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,14 +51,24 @@ for cmd in curl jq tailscale; do
   fi
 done
 
-# --- Get Tailscale IP ---
-echo "Detecting Tailscale IPv4 address..."
-TAILSCALE_IP="$(tailscale ip -4 2>/dev/null)" || {
-  echo "Error: Could not get Tailscale IP. Is Tailscale running?"
-  echo "You can check with: tailscale status"
+# --- Get Tailscale IP of the "box" node ---
+echo "Looking for Tailscale node \"box\"..."
+TAILSCALE_IP="$(tailscale status --json 2>/dev/null \
+  | jq -r '
+      .Peer[]
+      | select(.HostName == "box")
+      | .TailscaleIPs[]
+      | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"))
+    ' 2>/dev/null \
+  | head -n1)" || true
+
+if [[ -z "${TAILSCALE_IP}" ]]; then
+  echo "Error: Could not find a Tailscale peer named \"box\"."
+  echo "Make sure the Caddy container is running (docker compose up -d --build)"
+  echo "and that it has registered itself on the tailnet."
   exit 1
-}
-echo "  Tailscale IP: ${TAILSCALE_IP}"
+fi
+echo "  box Tailscale IP: ${TAILSCALE_IP}"
 
 # --- Cloudflare API ---
 CF_API="https://api.cloudflare.com/client/v4"
