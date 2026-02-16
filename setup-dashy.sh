@@ -4,14 +4,12 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # setup-dashy.sh — Generate config/dashy/config.yml from the template
 #
-# Reads DOMAIN and TS_DOMAIN from .env. If both are set (Option C), the
-# Cloudflare domain is used for primary links and Tailscale links are kept
-# as a collapsed fallback section. If only one is set, the fallback section
-# is removed.
+# Reads DOMAIN from .env and substitutes it into the template along with
+# any credential variables.
 #
 # Usage:
 #   ./setup-dashy.sh              # reads from .env
-#   ./setup-dashy.sh example.com  # override primary domain
+#   ./setup-dashy.sh example.com  # override domain
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,19 +25,15 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-# Allow passing primary domain as argument
+# Allow passing domain as argument
 if [[ $# -ge 1 ]]; then
   DOMAIN="$1"
 fi
 
-# Resolve primary domain (DOMAIN takes precedence, then TS_DOMAIN)
-PRIMARY="${DOMAIN:-${TS_DOMAIN:-}}"
-TS_FALLBACK="${TS_DOMAIN:-}"
-
-if [[ -z "$PRIMARY" ]]; then
+if [[ -z "${DOMAIN:-}" ]]; then
   echo "Usage: ./setup-dashy.sh <domain>"
   echo ""
-  echo "Or set DOMAIN or TS_DOMAIN in .env"
+  echo "Or set DOMAIN in .env"
   exit 1
 fi
 
@@ -52,8 +46,8 @@ fi
 # --- Generate config ---
 cp "$TEMPLATE" "$OUTPUT"
 
-# Replace primary domain placeholders
-sed -i '' "s/<DOMAIN>/${PRIMARY}/g" "$OUTPUT"
+# Replace domain placeholder
+sed -i '' "s/<DOMAIN>/${DOMAIN}/g" "$OUTPUT"
 
 # Replace credential placeholders
 for VAR in DELUGE_USER DELUGE_PASS PROWLARR_USER PROWLARR_PASS SONARR_USER SONARR_PASS \
@@ -65,16 +59,5 @@ for VAR in DELUGE_USER DELUGE_PASS PROWLARR_USER PROWLARR_PASS SONARR_USER SONAR
   fi
 done
 
-# Handle Tailscale fallback section
-if [[ -n "$TS_FALLBACK" && "$TS_FALLBACK" != "$PRIMARY" ]]; then
-  # Option C: both domains — fill in fallback links
-  sed -i '' "s/<TS_DOMAIN>/${TS_FALLBACK}/g" "$OUTPUT"
-  echo "Dashy config generated: ${OUTPUT}"
-  echo "  Primary:  *.${PRIMARY}"
-  echo "  Fallback: *.${TS_FALLBACK}"
-else
-  # Option B or no fallback — remove the entire Tailscale Fallback section
-  sed -i '' '/^  - name: Tailscale Fallback$/,$ d' "$OUTPUT"
-  echo "Dashy config generated: ${OUTPUT}"
-  echo "  Domain: *.${PRIMARY}"
-fi
+echo "Dashy config generated: ${OUTPUT}"
+echo "  Domain: *.${DOMAIN}"

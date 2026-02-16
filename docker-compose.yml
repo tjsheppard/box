@@ -81,7 +81,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # Reverse proxy (Options B & C only)
+  # Reverse proxy (Option B only)
   caddy:
     build: ${CONFIG}/caddy
     restart: unless-stopped
