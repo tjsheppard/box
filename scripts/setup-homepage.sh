@@ -38,6 +38,26 @@ if [[ -z "${DOMAIN:-}" ]]; then
   exit 1
 fi
 
+# --- Detect local IP (if not set in .env) ---
+if [[ -z "${LOCAL_IP:-}" ]]; then
+  if command -v ip &> /dev/null; then
+    LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}')
+  elif command -v ipconfig &> /dev/null; then
+    LOCAL_IP=$(ipconfig getifaddr en0 2>/dev/null || true)
+  fi
+  # Fallback
+  if [[ -z "${LOCAL_IP:-}" ]]; then
+    LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  fi
+fi
+
+if [[ -n "${LOCAL_IP:-}" ]]; then
+  echo "Local IP detected: ${LOCAL_IP}"
+else
+  echo "Warning: Could not detect local IP. Set LOCAL_IP in .env"
+  echo "  Local Access bookmarks will show placeholder values."
+fi
+
 # --- Check templates exist ---
 for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.template; do
   if [[ ! -f "${TEMPLATE_DIR}/${tmpl}" ]]; then
@@ -57,6 +77,11 @@ for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.templat
   # Replace domain placeholder
   sed -i '' "s/<DOMAIN>/${DOMAIN}/g" "$output"
 
+  # Replace local IP placeholder
+  if [[ -n "${LOCAL_IP:-}" ]]; then
+    sed -i '' "s/<LOCAL_IP>/${LOCAL_IP}/g" "$output"
+  fi
+
   # Replace API key and credential placeholders
   for VAR in JELLYFIN_API_KEY DELUGE_PASS PROWLARR_API_KEY SONARR_API_KEY RADARR_API_KEY PORTAINER_API_KEY; do
     VAL="${!VAR:-}"
@@ -75,6 +100,9 @@ done
 
 echo "Homepage config generated in: ${OUTPUT_DIR}/"
 echo "  Domain: *.${DOMAIN}"
+if [[ -n "${LOCAL_IP:-}" ]]; then
+  echo "  Local:  http://${LOCAL_IP}:3000"
+fi
 echo ""
 echo "Files created:"
 echo "  - services.yaml"

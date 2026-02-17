@@ -3,3 +3,29 @@
     - GitHub:
         - icon: github.svg
           href: https://github.com/tjsheppard/box
+
+- Local Access (<LOCAL_IP>):
+    - Jellyfin:
+        - abbr: JF
+          href: http://<LOCAL_IP>:8096
+    - Sonarr:
+        - abbr: SO
+          href: http://<LOCAL_IP>:8989
+    - Radarr:
+        - abbr: RA
+          href: http://<LOCAL_IP>:7878
+    - Prowlarr:
+        - abbr: PR
+          href: http://<LOCAL_IP>:9696
+    - Deluge:
+        - abbr: DL
+          href: http://<LOCAL_IP>:8112
+    - File Browser:
+        - abbr: FB
+          href: http://<LOCAL_IP>:8080
+    - Portainer:
+        - abbr: PT
+          href: http://<LOCAL_IP>:9000
+    - Homepage:
+        - abbr: HP
+          href: http://<LOCAL_IP>:3000
