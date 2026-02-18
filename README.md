@@ -1,4 +1,4 @@
-# Box 🦜 📦 🍿
+# Mulecolt
 
 Stream films and shows from Real Debrid via Jellyfin. That's it.
 
@@ -90,7 +90,7 @@ Browse and manage the database at `https://pocketbase.yourdomain.com/_/` (or `lo
 
 ### Option A: Local only
 
-Keep it simple. Services are available at `localhost` ports on the machine running Box. No Tailscale or Cloudflare needed.
+Keep it simple. Services are available at `localhost` ports on the machine running Mulecolt. No Tailscale or Cloudflare needed.
 
 No additional configuration needed — just build and start:
 
@@ -123,7 +123,7 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
     docker compose up -d --build
     ```
 
-> **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "box", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./scripts/setup-dns.sh`.
+> **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "mulecolt", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./scripts/setup-dns.sh`.
 
 ## Adding content
 
@@ -146,7 +146,7 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
 
 ## Transcoding
 
-Jellyfin supports transcoding for clients that can't direct-play the source format. On macOS with Apple Silicon, hardware transcoding (VideoToolbox) is not available inside Docker containers — software transcoding is used instead, which is fast enough on Apple Silicon for most use cases.
+Jellyfin supports transcoding for clients that can't direct-play the source format. On macOS with Apple Silicon, hardware transcoding (VideoToolmulecolt) is not available inside Docker containers — software transcoding is used instead, which is fast enough on Apple Silicon for most use cases.
 
 If you migrate to a Linux host with an Intel iGPU or NVIDIA GPU, uncomment the device passthrough lines in `docker-compose.yml` to enable hardware transcoding.
 

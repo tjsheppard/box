@@ -5,7 +5,7 @@ set -eu
 # entrypoint.sh — Start Caddy, then auto-create Cloudflare DNS records
 #
 # When CF_ZONE_ID and TS_API_KEY are set (Option B), this script starts Caddy
-# in the background, waits for the "box" Tailscale node to appear on the
+# in the background, waits for the "mulecolt" Tailscale node to appear on the
 # tailnet, retrieves its IP, and upserts Cloudflare A records for DOMAIN and
 # *.DOMAIN. Then it waits on the Caddy process for the container's lifetime.
 #
@@ -21,18 +21,18 @@ if [ -z "${CF_ZONE_ID:-}" ] || [ -z "${TS_API_KEY:-}" ] || [ -z "${DOMAIN:-}" ] 
   exec $CADDY_CMD
 fi
 
-# --- Start Caddy in the background so it registers the "box" Tailscale node ---
+# --- Start Caddy in the background so it registers the "mulecolt" Tailscale node ---
 echo "[entrypoint] Starting Caddy in background..."
 $CADDY_CMD &
 CADDY_PID=$!
 
-# --- Wait for the "box" node to appear on the tailnet ---
+# --- Wait for the "mulecolt" node to appear on the tailnet ---
 CF_API="https://api.cloudflare.com/client/v4"
 TS_API="https://api.tailscale.com/api/v2"
 MAX_ATTEMPTS=30
 SLEEP_SECONDS=10
 
-echo "[entrypoint] Waiting for Tailscale node \"box\" to appear on the tailnet..."
+echo "[entrypoint] Waiting for Tailscale node \"mulecolt\" to appear on the tailnet..."
 
 TAILSCALE_IP=""
 attempt=1
@@ -42,27 +42,27 @@ while [ $attempt -le $MAX_ATTEMPTS ]; do
     "${TS_API}/tailnet/-/devices?fields=default" 2>/dev/null)" || true
 
   if [ -n "$ts_response" ]; then
-    # Look for a device with hostname "box" and extract its IPv4 address
+    # Look for a device with hostname "mulecolt" and extract its IPv4 address
     TAILSCALE_IP="$(echo "$ts_response" | jq -r '
       .devices[]
-      | select(.hostname == "box")
+      | select(.hostname == "mulecolt")
       | .addresses[]
       | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"))
     ' 2>/dev/null | head -n1)" || true
   fi
 
   if [ -n "$TAILSCALE_IP" ]; then
-    echo "[entrypoint] Found box node: ${TAILSCALE_IP}"
+    echo "[entrypoint] Found mulecolt node: ${TAILSCALE_IP}"
     break
   fi
 
-  echo "[entrypoint] Attempt ${attempt}/${MAX_ATTEMPTS} — box not found yet, retrying in ${SLEEP_SECONDS}s..."
+  echo "[entrypoint] Attempt ${attempt}/${MAX_ATTEMPTS} — mulecolt not found yet, retrying in ${SLEEP_SECONDS}s..."
   sleep $SLEEP_SECONDS
   attempt=$((attempt + 1))
 done
 
 if [ -z "$TAILSCALE_IP" ]; then
-  echo "[entrypoint] Warning: Could not find \"box\" node after ${MAX_ATTEMPTS} attempts."
+  echo "[entrypoint] Warning: Could not find \"mulecolt\" node after ${MAX_ATTEMPTS} attempts."
   echo "[entrypoint] DNS records were NOT created. Caddy is still running."
   echo "[entrypoint] You can create them manually later with ./setup-dns.sh"
   wait $CADDY_PID

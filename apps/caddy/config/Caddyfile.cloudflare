@@ -6,7 +6,7 @@
 
 # Media server
 jellyfin.{$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
@@ -15,7 +15,7 @@ jellyfin.{$DOMAIN} {
 
 # Dashboard
 {$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
@@ -24,7 +24,7 @@ jellyfin.{$DOMAIN} {
 
 # Container management
 portainer.{$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
@@ -37,7 +37,7 @@ portainer.{$DOMAIN} {
 
 # File management
 files.{$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
@@ -46,7 +46,7 @@ files.{$DOMAIN} {
 
 # Zurg dashboard — Real Debrid library status
 zurg.{$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
@@ -55,7 +55,7 @@ zurg.{$DOMAIN} {
 
 # PocketBase — media database and TMDB cache
 pocketbase.{$DOMAIN} {
-	bind tailscale/box
+	bind tailscale/mulecolt
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
