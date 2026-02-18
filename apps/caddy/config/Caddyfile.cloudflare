@@ -52,3 +52,13 @@ zurg.{$DOMAIN} {
 	}
 	reverse_proxy zurg:9999
 }
+
+# PocketBase — media database and TMDB cache
+pocketbase.{$DOMAIN} {
+	bind tailscale/box
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	redir / /_/ permanent
+	reverse_proxy pocketbase:8090
+}

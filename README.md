@@ -6,6 +6,8 @@ Uses [Debrid Media Manager](https://debridmediamanager.com) to add content to yo
 
 ```
 Debrid Media Manager → Real Debrid → Zurg (WebDAV) → rclone (FUSE) → Organiser (symlinks) → Jellyfin
+                                                                          ↕
+                                                                      PocketBase (TMDB cache + media DB)
 ```
 
 Each container that needs the Zurg filesystem (organiser, Jellyfin) runs its own embedded [rclone](https://rclone.org/) FUSE mount. This avoids FUSE mount propagation issues on macOS Docker Desktop.
@@ -15,6 +17,7 @@ Each container that needs the Zurg filesystem (organiser, Jellyfin) runs its own
 | [Jellyfin](https://github.com/jellyfin/jellyfin)                  | Media server (+ embedded rclone mount)    |
 | [Zurg](https://github.com/debridmediamanager/zurg-testing)        | Real Debrid WebDAV server                 |
 | Media Organiser                                                   | Symlink creator (+ embedded rclone mount) |
+| [PocketBase](https://pocketbase.io)                               | Media database and TMDB cache             |
 | [File Browser](https://github.com/filebrowser/filebrowser)        | File management                           |
 | [Portainer](https://github.com/portainer/portainer)               | Container management                      |
 | [Homepage](https://github.com/gethomepage/homepage)               | Dashboard                                 |
@@ -25,9 +28,45 @@ Each container that needs the Zurg filesystem (organiser, Jellyfin) runs its own
 1. **Add content** — use [Debrid Media Manager](https://debridmediamanager.com) to add films and shows to your Real Debrid library
 2. **Zurg** exposes your Real Debrid library as a WebDAV server, automatically categorising torrents into `films/` and `shows/` directories
 3. **Media Organiser** mounts Zurg via its own embedded rclone instance, scans every 5 minutes, parses torrent names using `guessit`, verifies against TMDb, and creates clean symlinks:
-   - `media/films/The Dark Knight (2008)/The Dark Knight (2008).mkv`
-   - `media/shows/Breaking Bad (2008)/Season 01/Breaking Bad (2008) S01E01.mkv`
-4. **Jellyfin** runs its own embedded rclone mount and reads the organised `media/` directory — symlinks resolve because both containers mount at `/zurg`
+   - `media/films/The Dark Knight (2008) [tmdbid=155]/The Dark Knight (2008) [tmdbid=155].mkv`
+   - `media/shows/Breaking Bad (2008) [tmdbid=1396]/Season 01/Breaking Bad (2008) S01E01.mkv`
+4. **PocketBase** stores every TMDB lookup and media mapping, so no duplicate API calls are ever made (see [PocketBase](#pocketbase) below)
+5. **Jellyfin** runs its own embedded rclone mount and reads the organised `media/` directory — symlinks resolve because both containers mount at `/zurg`. The `[tmdbid=XXXXX]` in folder names lets Jellyfin auto-match metadata without scraping.
+
+## PocketBase
+
+PocketBase is a lightweight database that serves two purposes:
+
+### TMDB lookup cache
+
+Every time the organiser encounters a new title, it searches TMDB for the canonical name, year, and ID. That result is cached in PocketBase's `tmdb_lookups` table — **one row per unique title**. All episodes of the same show share a single cached lookup. Subsequent scans (every 5 minutes) hit the cache instead of the TMDB API, reducing API calls from hundreds per hour to essentially zero for a stable library.
+
+| query_title     | media_type | tmdb_id | canonical_title | canonical_year |
+| --------------- | ---------- | ------- | --------------- | -------------- |
+| Children of Men | film       | 1267    | Children of Men | 2006           |
+| Doctor Who      | show       | 57243   | Doctor Who      | 2005           |
+
+### Media item mappings
+
+Every source file (Real Debrid torrent on the Zurg mount) is mapped to its organised symlink path in PocketBase's `media_items` table. This gives you a browsable record of your entire library — what's on Real Debrid, where the symlink points, and the TMDB metadata.
+
+| source_path                              | target_path                                           | title           | tmdb_id | season | episode | score |
+| ---------------------------------------- | ----------------------------------------------------- | --------------- | ------- | ------ | ------- | ----- |
+| /zurg/films/Children.of.Men.../movie.mkv | /media/films/Children of Men (2006) [tmdbid=1267]/... | Children of Men | 1267    |        |         | 183   |
+| /zurg/shows/Doctor.Who.S01E01.../ep.mkv  | /media/shows/Doctor Who (2005) [tmdbid=57243]/...     | Doctor Who      | 57243   | 1      | 1       | 183   |
+
+### Rebuild mode
+
+If all symlinks are deleted or lost, set `REBUILD_MODE=true` and the organiser will recreate every symlink from PocketBase's stored mappings — **zero TMDB API calls**. On normal startup, if `state.json` is lost, the organiser automatically syncs its state from PocketBase.
+
+```bash
+# Rebuild all symlinks from the database (no TMDB calls)
+REBUILD_MODE=true docker compose up organiser
+```
+
+### Admin UI
+
+Browse and manage the database at `https://pocketbase.yourdomain.com/_/` (or `localhost:8090/_/`). The superuser account is created automatically from `EMAIL` and `PASSWORD` in `.env`.
 
 ## Prerequisites
 
@@ -43,8 +82,9 @@ Each container that needs the Zurg filesystem (organiser, Jellyfin) runs its own
    ```
 2. Set your **Real Debrid API token** (`REAL_DEBRID_API_KEY`) — get it from https://real-debrid.com/apitoken
 3. Set your **TMDb API key** (`TMDB_API_KEY`) — free key from https://www.themoviedb.org/settings/api (recommended for accurate naming)
-4. Check your timezone (`TZ`) and `MEDIA` path are correct
-5. Check `PUID` and `PGID` match your user (find with `id $USER`)
+4. Set `EMAIL` and `PASSWORD` for the PocketBase admin account
+5. Check your timezone (`TZ`) and `MEDIA` path are correct
+6. Check `PUID` and `PGID` match your user (find with `id $USER`)
 
 ## Step 2 — Choose your access method
 
@@ -89,19 +129,20 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
 
 1. Go to [Debrid Media Manager](https://debridmediamanager.com) and sign in with your Real Debrid account
 2. Search for a film or show and add it to your library
-3. Within ~5 minutes, the organiser will detect the new content, create properly named symlinks, and Jellyfin will pick it up on its next library scan
+3. Within ~5 minutes, the organiser will detect the new content, look up TMDB (cached in PocketBase), create properly named symlinks, and Jellyfin will pick it up on its next library scan
 
 > **Tip:** You can trigger a Jellyfin library scan manually from the Jellyfin admin dashboard, or wait for the scheduled scan.
 
 ## Accessing your services
 
-| Service      | Local            | Remote (Option B)                  |
-| ------------ | ---------------- | ---------------------------------- |
-| Jellyfin     | `localhost:8096` | `https://jellyfin.yourdomain.com`  |
-| Homepage     | `localhost:3000` | `https://yourdomain.com`           |
-| Portainer    | `localhost:9000` | `https://portainer.yourdomain.com` |
-| File Browser | `localhost:8080` | `https://files.yourdomain.com`     |
-| Zurg         | `localhost:9999` | `https://zurg.yourdomain.com`      |
+| Service      | Local            | Remote (Option B)                      |
+| ------------ | ---------------- | -------------------------------------- |
+| Jellyfin     | `localhost:8096` | `https://jellyfin.yourdomain.com`      |
+| Homepage     | `localhost:3000` | `https://yourdomain.com`               |
+| PocketBase   | `localhost:8090` | `https://pocketbase.yourdomain.com/_/` |
+| Portainer    | `localhost:9000` | `https://portainer.yourdomain.com`     |
+| File Browser | `localhost:8080` | `https://files.yourdomain.com`         |
+| Zurg         | `localhost:9999` | `https://zurg.yourdomain.com`          |
 
 ## Transcoding
 

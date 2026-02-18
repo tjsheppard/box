@@ -26,3 +26,7 @@
         icon: mdi-cloud-download
         href: https://zurg.<DOMAIN>
         description: Real Debrid mount
+    - PocketBase:
+        icon: mdi-database
+        href: https://pocketbase.<DOMAIN>/_/
+        description: Media database

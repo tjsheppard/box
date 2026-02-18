@@ -3,16 +3,22 @@
 Media Organiser — creates Jellyfin-compatible symlinks from a Zurg/rclone mount.
 
 Reads the raw torrent-named files from /zurg/films/ and /zurg/shows/, parses
-them with guessit, optionally verifies against TMDb, and creates a clean symlink
-tree at /media/films/ and /media/shows/ following Jellyfin naming conventions.
+them with guessit, verifies against TMDb (with PocketBase caching), and creates
+a clean symlink tree at /media/films/ and /media/shows/ following Jellyfin
+naming conventions.
 
 Jellyfin naming conventions:
-  Films: /media/films/Film Name (Year)/Film Name (Year).ext
-  Shows: /media/shows/Show Name (Year)/Season XX/Show Name (Year) SXXEXX.ext
+  Films: /media/films/Film Name (Year) [tmdbid=XXXXX]/Film Name (Year) [tmdbid=XXXXX].ext
+  Shows: /media/shows/Show Name (Year) [tmdbid=XXXXX]/Season XX/Show Name (Year) SXXEXX.ext
+
+TMDB lookups are cached in PocketBase so each title is only queried once.
+All source→target mappings are stored in PocketBase for recovery/rebuild.
 
 Environment variables:
   TMDB_API_KEY        — TMDb API key for name verification (optional but recommended)
   SCAN_INTERVAL_SECS  — seconds between scans (default: 300)
+  POCKETBASE_URL      — PocketBase API URL (default: http://pocketbase:8090)
+  REBUILD_MODE        — set to "true" to rebuild symlinks from DB and exit
   PUID / PGID         — not used directly (symlinks don't have ownership issues)
 """
 
@@ -23,6 +29,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 from guessit import guessit
@@ -36,7 +43,6 @@ MEDIA_DIR = Path("/media")
 STATE_FILE = Path("/app/data/state.json")
 
 # The path where the Zurg mount appears inside Jellyfin's container.
-# Both the organiser and Jellyfin run their own rclone mount at /zurg.
 JELLYFIN_ZURG_PATH = Path(os.environ.get("JELLYFIN_ZURG_PATH", "/zurg"))
 
 FILMS_DIR = MEDIA_DIR / "films"
@@ -47,6 +53,9 @@ ZURG_SHOWS = ZURG_MOUNT / "shows"
 
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL_SECS", "300"))
+
+POCKETBASE_URL = os.environ.get("POCKETBASE_URL", "http://pocketbase:8090")
+REBUILD_MODE = os.environ.get("REBUILD_MODE", "").lower() == "true"
 
 TMDB_BASE = "https://api.themoviedb.org/3"
 
@@ -178,33 +187,235 @@ log = logging.getLogger("organiser")
 
 
 # ---------------------------------------------------------------------------
-# State persistence — track what we've already processed
+# PocketBase client
 # ---------------------------------------------------------------------------
 
-def load_state() -> dict:
-    """Load the processing state from disk."""
-    if STATE_FILE.exists():
+class PocketBaseClient:
+    """Lightweight PocketBase REST API client for the organiser."""
+
+    def __init__(self, base_url: str):
+        self.base_url = base_url.rstrip("/")
+        self.api = f"{self.base_url}/api"
+        self._session = requests.Session()
+
+    def _url(self, collection: str, record_id: str = "") -> str:
+        url = f"{self.api}/collections/{collection}/records"
+        if record_id:
+            url += f"/{record_id}"
+        return url
+
+    # --- TMDB collection ---
+
+    def get_tmdb(self, tmdb_id: int, media_type: str) -> dict | None:
+        """Look up a canonical TMDB record by tmdb_id and type."""
         try:
-            return json.loads(STATE_FILE.read_text())
-        except (json.JSONDecodeError, OSError):
-            log.warning("Corrupt state file, starting fresh")
-    return {"films": {}, "shows": {}}
+            filt = f'tmdb_id = {tmdb_id} && type = "{media_type}"'
+            resp = self._session.get(
+                self._url("tmdb"),
+                params={"filter": filt, "perPage": 1},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if items:
+                return items[0]
+        except Exception as e:
+            log.debug(f"PocketBase tmdb query failed: {e}")
+        return None
+
+    def upsert_tmdb(self, tmdb_id: int, media_type: str,
+                    title: str, year: int | None) -> dict | None:
+        """Create or update a tmdb record; return the record (with its PocketBase id)."""
+        data = {
+            "tmdb_id": tmdb_id,
+            "type": media_type,
+            "title": title,
+            "year": year or 0,
+        }
+        try:
+            existing = self.get_tmdb(tmdb_id, media_type)
+            if existing:
+                resp = self._session.patch(
+                    self._url("tmdb", existing["id"]),
+                    json=data,
+                    timeout=5,
+                )
+            else:
+                resp = self._session.post(self._url("tmdb"), json=data, timeout=5)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            log.debug(f"PocketBase upsert tmdb failed: {e}")
+        return None
+
+    # --- Films collection ---
+
+    def get_film(self, source_path: str) -> dict | None:
+        """Look up a film record by source path."""
+        try:
+            filt = f'source_path = "{self._escape(source_path)}"'
+            resp = self._session.get(
+                self._url("films"),
+                params={"filter": filt, "perPage": 1},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if items:
+                return items[0]
+        except Exception as e:
+            log.debug(f"PocketBase films query failed: {e}")
+        return None
+
+    def upsert_film(self, source_path: str, target_path: str,
+                    tmdb_row_id: str, score: int = 0) -> dict | None:
+        """Create or update a film record."""
+        data = {
+            "source_path": source_path,
+            "target_path": target_path,
+            "tmdb": tmdb_row_id,
+            "score": score,
+        }
+        try:
+            existing = self.get_film(source_path)
+            if existing:
+                resp = self._session.patch(
+                    self._url("films", existing["id"]), json=data, timeout=5,
+                )
+            else:
+                resp = self._session.post(self._url("films"), json=data, timeout=5)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            log.debug(f"PocketBase upsert film failed: {e}")
+        return None
+
+    def delete_film(self, record_id: str):
+        """Delete a film record by PocketBase row ID."""
+        try:
+            self._session.delete(self._url("films", record_id), timeout=5).raise_for_status()
+        except Exception as e:
+            log.debug(f"PocketBase delete film failed: {e}")
+
+    def list_all_films(self) -> list[dict]:
+        """Fetch all film records (paginated), expanding the tmdb relation."""
+        return self._paginate("films", expand="tmdb")
+
+    # --- Shows collection ---
+
+    def get_show(self, source_path: str) -> dict | None:
+        """Look up a show record by source path."""
+        try:
+            filt = f'source_path = "{self._escape(source_path)}"'
+            resp = self._session.get(
+                self._url("shows"),
+                params={"filter": filt, "perPage": 1},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if items:
+                return items[0]
+        except Exception as e:
+            log.debug(f"PocketBase shows query failed: {e}")
+        return None
+
+    def upsert_show(self, source_path: str, target_path: str,
+                    tmdb_row_id: str, season: int | None = None,
+                    episode: int | None = None) -> dict | None:
+        """Create or update a show record."""
+        data = {
+            "source_path": source_path,
+            "target_path": target_path,
+            "tmdb": tmdb_row_id,
+            "season": season or 0,
+            "episode": episode or 0,
+        }
+        try:
+            existing = self.get_show(source_path)
+            if existing:
+                resp = self._session.patch(
+                    self._url("shows", existing["id"]), json=data, timeout=5,
+                )
+            else:
+                resp = self._session.post(self._url("shows"), json=data, timeout=5)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            log.debug(f"PocketBase upsert show failed: {e}")
+        return None
+
+    def delete_show(self, record_id: str):
+        """Delete a show record by PocketBase row ID."""
+        try:
+            self._session.delete(self._url("shows", record_id), timeout=5).raise_for_status()
+        except Exception as e:
+            log.debug(f"PocketBase delete show failed: {e}")
+
+    def list_all_shows(self) -> list[dict]:
+        """Fetch all show records (paginated), expanding the tmdb relation."""
+        return self._paginate("shows", expand="tmdb")
+
+    # --- Helpers ---
+
+    def _paginate(self, collection: str, expand: str = "") -> list[dict]:
+        items = []
+        page = 1
+        params: dict = {"perPage": 200, "page": page}
+        if expand:
+            params["expand"] = expand
+        while True:
+            try:
+                params["page"] = page
+                resp = self._session.get(self._url(collection), params=params, timeout=10)
+                resp.raise_for_status()
+                data = resp.json()
+                items.extend(data.get("items", []))
+                if page >= data.get("totalPages", 1):
+                    break
+                page += 1
+            except Exception as e:
+                log.warning(f"PocketBase list {collection} failed: {e}")
+                break
+        return items
+
+    def health_check(self) -> bool:
+        """Check if PocketBase is reachable."""
+        try:
+            resp = self._session.get(f"{self.base_url}/api/health", timeout=5)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+    @staticmethod
+    def _escape(value: str) -> str:
+        """Escape a string for PocketBase filter syntax."""
+        return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def save_state(state: dict):
-    """Persist the processing state to disk."""
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2))
+# Global PocketBase client
+pb = PocketBaseClient(POCKETBASE_URL)
 
 
 # ---------------------------------------------------------------------------
-# TMDb lookup
+# TMDb lookup (with PocketBase caching)
 # ---------------------------------------------------------------------------
 
-def tmdb_search_film(title: str, year: int | None = None) -> dict | None:
-    """Search TMDb for a film, return {title, year} or None."""
+def tmdb_search_film(title: str, year: int | None = None,
+                     _cache: dict | None = None) -> dict | None:
+    """Search TMDb for a film, return {title, year, tmdb_id} or None.
+
+    Checks the in-memory cache first (keyed on parsed title, per scan cycle),
+    then queries the TMDb API. On a hit the result is persisted to PocketBase
+    (upserted by tmdb_id + type so it is never duplicated).
+    """
+    if _cache is not None and title.lower() in _cache:
+        return _cache[title.lower()]
+
+    # No persistent pre-lookup by title — go straight to TMDb API
     if not TMDB_API_KEY:
         return None
+
     params = {"api_key": TMDB_API_KEY, "query": title}
     if year:
         params["year"] = year
@@ -215,19 +426,40 @@ def tmdb_search_film(title: str, year: int | None = None) -> dict | None:
         if results:
             r = results[0]
             release = r.get("release_date", "")
-            return {
+            result = {
                 "title": r["title"],
                 "year": int(release[:4]) if release and len(release) >= 4 else year,
+                "tmdb_id": r["id"],
             }
+            # Persist / refresh in PocketBase (keyed on tmdb_id + type)
+            pb.upsert_tmdb(
+                tmdb_id=r["id"],
+                media_type="film",
+                title=r["title"],
+                year=result["year"],
+            )
+            if _cache is not None:
+                _cache[title.lower()] = result
+            log.info(f"  TMDb API → {title} = {result['title']} ({result['year']}) [tmdbid={result['tmdb_id']}]")
+            return result
     except Exception as e:
         log.debug(f"TMDb film search failed for '{title}': {e}")
     return None
 
 
-def tmdb_search_tv(title: str, year: int | None = None) -> dict | None:
-    """Search TMDb for a TV show, return {title, year} or None."""
+def tmdb_search_tv(title: str, year: int | None = None,
+                   _cache: dict | None = None) -> dict | None:
+    """Search TMDb for a TV show, return {title, year, tmdb_id} or None.
+
+    The in-memory _cache dict deduplicates lookups within a single scan cycle
+    (e.g. 20 episodes of the same show share one cached result).
+    """
+    if _cache is not None and title.lower() in _cache:
+        return _cache[title.lower()]
+
     if not TMDB_API_KEY:
         return None
+
     params = {"api_key": TMDB_API_KEY, "query": title}
     if year:
         params["first_air_date_year"] = year
@@ -238,10 +470,22 @@ def tmdb_search_tv(title: str, year: int | None = None) -> dict | None:
         if results:
             r = results[0]
             air_date = r.get("first_air_date", "")
-            return {
+            result = {
                 "title": r["name"],
                 "year": int(air_date[:4]) if air_date and len(air_date) >= 4 else year,
+                "tmdb_id": r["id"],
             }
+            # Persist / refresh in PocketBase (keyed on tmdb_id + type)
+            pb.upsert_tmdb(
+                tmdb_id=r["id"],
+                media_type="show",
+                title=r["name"],
+                year=result["year"],
+            )
+            if _cache is not None:
+                _cache[title.lower()] = result
+            log.info(f"  TMDb API → {title} = {result['title']} ({result['year']}) [tmdbid={result['tmdb_id']}]")
+            return result
     except Exception as e:
         log.debug(f"TMDb TV search failed for '{title}': {e}")
     return None
@@ -254,32 +498,38 @@ def tmdb_search_tv(title: str, year: int | None = None) -> dict | None:
 def sanitise(name: str) -> str:
     """Remove characters that Jellyfin doesn't allow in filenames."""
     name = UNSAFE_CHARS.sub("", name)
-    # Collapse multiple spaces
     name = re.sub(r"\s+", " ", name).strip()
-    # Remove trailing dots/spaces (Windows compat)
     name = name.rstrip(". ")
     return name
 
 
-def format_film_name(title: str, year: int | None) -> str:
-    """Format: Film Name (Year)"""
+def format_film_name(title: str, year: int | None, tmdb_id: int | None = None) -> str:
+    """Format: Film Name (Year) [tmdbid=XXXXX]"""
     title = sanitise(title)
+    parts = [title]
     if year:
-        return f"{title} ({year})"
-    return title
+        parts.append(f"({year})")
+    if tmdb_id:
+        parts.append(f"[tmdbid={tmdb_id}]")
+    return " ".join(parts)
 
 
-def format_show_name(title: str, year: int | None) -> str:
-    """Format: Show Name (Year)"""
+def format_show_name(title: str, year: int | None, tmdb_id: int | None = None) -> str:
+    """Format: Show Name (Year) [tmdbid=XXXXX]"""
     title = sanitise(title)
+    parts = [title]
     if year:
-        return f"{title} ({year})"
-    return title
+        parts.append(f"({year})")
+    if tmdb_id:
+        parts.append(f"[tmdbid={tmdb_id}]")
+    return " ".join(parts)
 
 
 def format_episode(title: str, year: int | None, season: int, episode: int | list) -> str:
-    """Format: Show Name (Year) SXXEXX"""
-    base = format_show_name(title, year)
+    """Format: Show Name (Year) SXXEXX  (no tmdbid in episode filename)"""
+    base = sanitise(title)
+    if year:
+        base = f"{base} ({year})"
     if isinstance(episode, list):
         ep_str = "".join(f"E{e:02d}" for e in episode)
     else:
@@ -310,12 +560,7 @@ def find_video_files(directory: Path) -> list[Path]:
 # ---------------------------------------------------------------------------
 
 def create_symlink(source: Path, target: Path):
-    """Create a symlink at target pointing to source, creating parent dirs.
-
-    The source path is remapped from the organiser's mount (/zurg/...) to the
-    Jellyfin mount path (/mnt/zurg/...) so symlinks resolve inside Jellyfin.
-    """
-    # Remap: /zurg/films/X → /mnt/zurg/films/X (Jellyfin's view)
+    """Create a symlink at target pointing to source, creating parent dirs."""
     try:
         relative_to_zurg = source.relative_to(ZURG_MOUNT)
         symlink_target = JELLYFIN_ZURG_PATH / relative_to_zurg
@@ -361,8 +606,8 @@ def cleanup_broken_symlinks(directory: Path):
 def process_films(state: dict) -> dict:
     """Process the Zurg films directory and create film symlinks.
 
-    When multiple source files map to the same film, the one with the
-    highest quality score wins.
+    TMDB lookups are cached in PocketBase. Each unique film title is only
+    looked up once, ever (across reboots).
     """
     processed = state.get("films", {})
     video_files = find_video_files(ZURG_FILMS)
@@ -371,12 +616,13 @@ def process_films(state: dict) -> dict:
         log.info("  No video files found in films directory")
         return processed
 
-    # Collect candidates grouped by target path: {target_str: [(source, score, guess_name, meta)]}
+    # In-memory cache for this scan cycle (avoids repeated PocketBase queries)
+    tmdb_cache: dict[str, dict] = {}
+
+    # Collect candidates grouped by target path
     candidates: dict[str, list] = {}
 
     for video_path in video_files:
-        # Use the torrent folder name (parent) for guessing if available
-        # Zurg typically creates: /films/<torrent_name>/<video_file>
         relative = video_path.relative_to(ZURG_FILMS)
         if len(relative.parts) > 1:
             guess_name = relative.parts[0]
@@ -386,14 +632,26 @@ def process_films(state: dict) -> dict:
         guess = guessit(guess_name, {"type": "movie"})
         title = guess.get("title", guess_name)
         year = guess.get("year")
+        tmdb_id = None
 
-        # Try TMDb for a canonical name
-        tmdb = tmdb_search_film(title, year)
-        if tmdb:
-            title = tmdb["title"]
-            year = tmdb.get("year", year)
+        # Check if already fully processed with same target
+        source_key = str(video_path)
+        if source_key in processed:
+            existing = processed[source_key]
+            # Fast path: if source is tracked and nothing changed, reuse it
+            title = existing.get("title", title)
+            year = existing.get("year", year)
+            tmdb_id = existing.get("tmdb_id")
 
-        film_name = format_film_name(title, year)
+        # TMDB lookup (cached via PocketBase + in-memory per scan)
+        if tmdb_id is None:
+            tmdb = tmdb_search_film(title, year, _cache=tmdb_cache)
+            if tmdb:
+                title = tmdb["title"]
+                year = tmdb.get("year", year)
+                tmdb_id = tmdb.get("tmdb_id")
+
+        film_name = format_film_name(title, year, tmdb_id)
         target_file = FILMS_DIR / film_name / f"{film_name}{video_path.suffix}"
         target_str = str(target_file)
 
@@ -401,7 +659,7 @@ def process_films(state: dict) -> dict:
 
         if target_str not in candidates:
             candidates[target_str] = []
-        candidates[target_str].append((video_path, score, guess_name, title, year))
+        candidates[target_str].append((video_path, score, guess_name, title, year, tmdb_id))
 
     # For each target, pick the best candidate
     new_processed = {}
@@ -418,25 +676,34 @@ def process_films(state: dict) -> dict:
         else:
             best = options[0]
 
-        video_path, score, guess_name, title, year = best
+        video_path, score, guess_name, title, year, tmdb_id = best
         source_key = str(video_path)
-
-        # Check if this exact source is already linked
-        if source_key in processed and processed[source_key].get("target") == target_str:
-            new_processed[source_key] = processed[source_key]
-            continue
 
         if len(options) == 1:
             log.info(f"  Film: {guess_name}  {format_score(score)}")
 
+        # create_symlink is idempotent — no-ops if the symlink already exists and is correct
         create_symlink(video_path, target_file)
 
-        new_processed[source_key] = {
+        entry = {
             "title": title,
             "year": year,
+            "tmdb_id": tmdb_id,
             "target": target_str,
             "score": score,
         }
+        new_processed[source_key] = entry
+
+        # Always upsert to PocketBase so it stays in sync even after a data wipe
+        if tmdb_id is not None:
+            tmdb_record = pb.upsert_tmdb(tmdb_id, "film", title, year)
+            if tmdb_record:
+                pb.upsert_film(
+                    source_path=source_key,
+                    target_path=target_str,
+                    tmdb_row_id=tmdb_record["id"],
+                    score=score,
+                )
 
     return new_processed
 
@@ -444,8 +711,9 @@ def process_films(state: dict) -> dict:
 def process_shows(state: dict) -> dict:
     """Process the Zurg shows directory and create TV show symlinks.
 
-    When multiple source files map to the same episode, the one with the
-    highest quality score wins.
+    TMDB lookups are cached in PocketBase. All episodes of the same show
+    share one cached TMDB lookup (both in-memory per scan and in PocketBase
+    across scans).
     """
     processed = state.get("shows", {})
     video_files = find_video_files(ZURG_SHOWS)
@@ -453,6 +721,9 @@ def process_shows(state: dict) -> dict:
     if not video_files:
         log.info("  No video files found in shows directory")
         return processed
+
+    # In-memory cache for this scan cycle
+    tmdb_cache: dict[str, dict] = {}
 
     # Collect candidates grouped by target path
     candidates: dict[str, list] = {}
@@ -485,13 +756,25 @@ def process_shows(state: dict) -> dict:
             log.warning(f"  Skipping (no episode detected): {video_path.name}")
             continue
 
-        # Try TMDb for a canonical show name
-        tmdb = tmdb_search_tv(title, year)
-        if tmdb:
-            title = tmdb["title"]
-            year = tmdb.get("year", year)
+        tmdb_id = None
 
-        show_name = format_show_name(title, year)
+        # Check if already fully processed
+        source_key = str(video_path)
+        if source_key in processed:
+            existing = processed[source_key]
+            title = existing.get("title", title)
+            year = existing.get("year", year)
+            tmdb_id = existing.get("tmdb_id")
+
+        # TMDB lookup (cached — one lookup per show title, shared by all episodes)
+        if tmdb_id is None:
+            tmdb = tmdb_search_tv(title, year, _cache=tmdb_cache)
+            if tmdb:
+                title = tmdb["title"]
+                year = tmdb.get("year", year)
+                tmdb_id = tmdb.get("tmdb_id")
+
+        show_name = format_show_name(title, year, tmdb_id)
         season_dir = SHOWS_DIR / show_name / f"Season {season:02d}"
         episode_name = format_episode(title, year, season, episode)
         target_file = season_dir / f"{episode_name}{video_path.suffix}"
@@ -501,7 +784,7 @@ def process_shows(state: dict) -> dict:
 
         if target_str not in candidates:
             candidates[target_str] = []
-        candidates[target_str].append((video_path, score, title, year, season, episode))
+        candidates[target_str].append((video_path, score, title, year, season, episode, tmdb_id))
 
     # For each target, pick the best candidate
     new_processed = {}
@@ -518,29 +801,149 @@ def process_shows(state: dict) -> dict:
         else:
             best = options[0]
 
-        video_path, score, title, year, season, episode = best
+        video_path, score, title, year, season, episode, tmdb_id = best
         source_key = str(video_path)
-
-        # Check if this exact source is already linked
-        if source_key in processed and processed[source_key].get("target") == target_str:
-            new_processed[source_key] = processed[source_key]
-            continue
 
         if len(options) == 1:
             log.info(f"  Show: {video_path.name}  {format_score(score)}")
 
+        # create_symlink is idempotent — no-ops if the symlink already exists and is correct
         create_symlink(video_path, target_file)
 
-        new_processed[source_key] = {
+        ep_value = episode if isinstance(episode, int) else list(episode)
+        ep_for_db = episode if isinstance(episode, int) else episode[0]
+
+        entry = {
             "title": title,
             "year": year,
+            "tmdb_id": tmdb_id,
             "season": season,
-            "episode": episode if isinstance(episode, int) else list(episode),
+            "episode": ep_value,
             "target": target_str,
             "score": score,
         }
+        new_processed[source_key] = entry
+
+        # Always upsert to PocketBase so it stays in sync even after a data wipe
+        if tmdb_id is not None:
+            tmdb_record = pb.upsert_tmdb(tmdb_id, "show", title, year)
+            if tmdb_record:
+                pb.upsert_show(
+                    source_path=source_key,
+                    target_path=target_str,
+                    tmdb_row_id=tmdb_record["id"],
+                    season=season,
+                    episode=ep_for_db,
+                )
 
     return new_processed
+
+
+# ---------------------------------------------------------------------------
+# State persistence (kept as fallback alongside PocketBase)
+# ---------------------------------------------------------------------------
+
+def load_state() -> dict:
+    """Load the processing state from disk."""
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            log.warning("Corrupt state file, starting fresh")
+    return {"films": {}, "shows": {}}
+
+
+def save_state(state: dict):
+    """Persist the processing state to disk."""
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Rebuild mode — recreate all symlinks from PocketBase without TMDB calls
+# ---------------------------------------------------------------------------
+
+def run_rebuild():
+    """Rebuild all symlinks from PocketBase films/shows records.
+
+    This mode does NOT query TMDB at all. It reads every record from
+    PocketBase, verifies that the source file still exists on the Zurg
+    mount, and recreates the symlink.
+    """
+    log.info("=" * 60)
+    log.info("REBUILD MODE — recreating symlinks from PocketBase")
+    log.info("=" * 60)
+
+    all_items = pb.list_all_films() + pb.list_all_shows()
+    if not all_items:
+        log.warning("No media items found in PocketBase. Nothing to rebuild.")
+        return
+
+    log.info(f"Found {len(all_items)} media item(s) in PocketBase")
+
+    rebuilt = 0
+    skipped = 0
+    missing = 0
+
+    for item in all_items:
+        source = Path(item["source_path"])
+        target = Path(item["target_path"])
+
+        if not source.exists():
+            log.warning(f"  ✗ Source missing: {source}")
+            missing += 1
+            continue
+
+        if target.exists() or target.is_symlink():
+            if target.is_symlink():
+                # Already linked — skip
+                skipped += 1
+                continue
+            target.unlink()
+
+        create_symlink(source, target)
+        rebuilt += 1
+
+    log.info("=" * 60)
+    log.info(f"Rebuild complete: {rebuilt} created, {skipped} already linked, {missing} source(s) missing")
+    log.info("=" * 60)
+
+
+# ---------------------------------------------------------------------------
+# Sync state from PocketBase (bootstrap local state from DB)
+# ---------------------------------------------------------------------------
+
+def sync_state_from_pocketbase() -> dict:
+    """Build local state dict from PocketBase films/shows.
+
+    This allows the organiser to bootstrap its in-memory state from PocketBase
+    if state.json is lost or empty. The tmdb relation is expanded so we can
+    read title/year without a separate lookup.
+    """
+    state = {"films": {}, "shows": {}}
+
+    for item in pb.list_all_films():
+        tmdb_exp = (item.get("expand") or {}).get("tmdb", {})
+        state["films"][item["source_path"]] = {
+            "title": tmdb_exp.get("title", ""),
+            "year": tmdb_exp.get("year"),
+            "tmdb_id": tmdb_exp.get("tmdb_id"),
+            "target": item.get("target_path", ""),
+            "score": item.get("score", 0),
+        }
+
+    for item in pb.list_all_shows():
+        tmdb_exp = (item.get("expand") or {}).get("tmdb", {})
+        state["shows"][item["source_path"]] = {
+            "title": tmdb_exp.get("title", ""),
+            "year": tmdb_exp.get("year"),
+            "tmdb_id": tmdb_exp.get("tmdb_id"),
+            "season": item.get("season"),
+            "episode": item.get("episode"),
+            "target": item.get("target_path", ""),
+        }
+
+    return state
 
 
 # ---------------------------------------------------------------------------
@@ -553,19 +956,34 @@ def run_scan():
 
     state = load_state()
 
+    # If local state is empty but PocketBase has data, sync from PocketBase
+    if not state.get("films") and not state.get("shows"):
+        pb_state = sync_state_from_pocketbase()
+        if pb_state.get("films") or pb_state.get("shows"):
+            log.info(f"Bootstrapped state from PocketBase: "
+                     f"{len(pb_state.get('films', {}))} films, "
+                     f"{len(pb_state.get('shows', {}))} shows")
+            state = pb_state
+
     # Clean up broken symlinks first
     log.info("Checking for broken symlinks...")
     cleanup_broken_symlinks(FILMS_DIR)
     cleanup_broken_symlinks(SHOWS_DIR)
 
-    # Also purge state entries whose sources no longer exist
-    for category in ("films", "shows"):
-        stale_keys = [
-            k for k in state.get(category, {})
-            if not Path(k).exists()
-        ]
-        for k in stale_keys:
-            del state[category][k]
+    # Purge state entries whose sources no longer exist
+    stale_films = [k for k in state.get("films", {}) if not Path(k).exists()]
+    for k in stale_films:
+        pb_item = pb.get_film(k)
+        if pb_item:
+            pb.delete_film(pb_item["id"])
+        del state["films"][k]
+
+    stale_shows = [k for k in state.get("shows", {}) if not Path(k).exists()]
+    for k in stale_shows:
+        pb_item = pb.get_show(k)
+        if pb_item:
+            pb.delete_show(pb_item["id"])
+        del state["shows"][k]
 
     # Process new content
     log.info("Processing films...")
@@ -581,6 +999,18 @@ def run_scan():
              f"({len(state.get('films', {}))} films, {len(state.get('shows', {}))} shows)")
 
 
+def wait_for_pocketbase():
+    """Wait for PocketBase to become available."""
+    log.info(f"Waiting for PocketBase at {POCKETBASE_URL}...")
+    for attempt in range(60):
+        if pb.health_check():
+            log.info("PocketBase is ready")
+            return True
+        time.sleep(2)
+    log.warning("PocketBase not available after 2 minutes, continuing without caching")
+    return False
+
+
 def main():
     """Entry point — run scan loop."""
     log.info("=" * 60)
@@ -589,12 +1019,33 @@ def main():
     log.info(f"  Jellyfin path:  {JELLYFIN_ZURG_PATH}")
     log.info(f"  Media output:   {MEDIA_DIR}")
     log.info(f"  TMDb API:       {'enabled' if TMDB_API_KEY else 'disabled (set TMDB_API_KEY for better naming)'}")
+    log.info(f"  PocketBase:     {POCKETBASE_URL}")
+    log.info(f"  Rebuild mode:   {REBUILD_MODE}")
     log.info(f"  Scan interval:  {SCAN_INTERVAL}s")
     log.info("=" * 60)
 
     # Ensure output directories exist
     FILMS_DIR.mkdir(parents=True, exist_ok=True)
     SHOWS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Wait for PocketBase
+    wait_for_pocketbase()
+
+    # Rebuild mode: recreate symlinks from PocketBase and exit
+    if REBUILD_MODE:
+        # Wait for Zurg mount (needed to verify source files)
+        log.info("Waiting for Zurg mount...")
+        for attempt in range(60):
+            if ZURG_MOUNT.exists() and any(ZURG_MOUNT.iterdir()):
+                log.info("Zurg mount detected")
+                break
+            time.sleep(5)
+        else:
+            log.warning("Zurg mount not detected after 5 minutes, starting rebuild anyway")
+
+        run_rebuild()
+        log.info("Rebuild mode complete — exiting.")
+        return
 
     # Wait for Zurg mount to become available
     log.info("Waiting for Zurg mount...")
