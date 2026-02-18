@@ -1,23 +1,38 @@
 # Box 🦜 📦 🍿
 
-Get movies and series. That's it. Using open-source technologies.
+Stream films and shows from Real Debrid via Jellyfin. That's it.
 
-| Service                                                           | Description                        |
-| ----------------------------------------------------------------- | ---------------------------------- |
-| [Jellyfin](https://github.com/jellyfin/jellyfin)                  | Media server                       |
-| [Deluge](https://github.com/deluge-torrent/deluge)                | Torrent client                     |
-| [Prowlarr](https://github.com/Prowlarr/Prowlarr)                  | Indexer manager                    |
-| [Sonarr](https://github.com/Sonarr/Sonarr)                        | Show manager                       |
-| [Radarr](https://github.com/Radarr/Radarr)                        | Film manager                       |
-| [File Browser](https://github.com/filebrowser/filebrowser)        | File management                    |
-| [Portainer](https://github.com/portainer/portainer)               | Container management               |
-| [Homepage](https://github.com/gethomepage/homepage)               | Dashboard                          |
-| [Caddy + Tailscale](https://github.com/tailscale/caddy-tailscale) | HTTPS reverse proxy over Tailscale |
-| [Gluetun](https://github.com/qdm12/gluetun)                       | VPN client (Mullvad WireGuard)     |
+Uses [Debrid Media Manager](https://debridmediamanager.com) to add content to your Real Debrid library, [Zurg](https://github.com/debridmediamanager/zurg-testing) to expose it as WebDAV, and a custom organiser to create clean Jellyfin-compatible symlinks.
+
+```
+Debrid Media Manager → Real Debrid → Zurg (WebDAV) → rclone (FUSE) → Organiser (symlinks) → Jellyfin
+```
+
+Each container that needs the Zurg filesystem (organiser, Jellyfin) runs its own embedded [rclone](https://rclone.org/) FUSE mount. This avoids FUSE mount propagation issues on macOS Docker Desktop.
+
+| Service                                                           | Description                               |
+| ----------------------------------------------------------------- | ----------------------------------------- |
+| [Jellyfin](https://github.com/jellyfin/jellyfin)                  | Media server (+ embedded rclone mount)    |
+| [Zurg](https://github.com/debridmediamanager/zurg-testing)        | Real Debrid WebDAV server                 |
+| Media Organiser                                                   | Symlink creator (+ embedded rclone mount) |
+| [File Browser](https://github.com/filebrowser/filebrowser)        | File management                           |
+| [Portainer](https://github.com/portainer/portainer)               | Container management                      |
+| [Homepage](https://github.com/gethomepage/homepage)               | Dashboard                                 |
+| [Caddy + Tailscale](https://github.com/tailscale/caddy-tailscale) | HTTPS reverse proxy over Tailscale        |
+
+## How it works
+
+1. **Add content** — use [Debrid Media Manager](https://debridmediamanager.com) to add films and shows to your Real Debrid library
+2. **Zurg** exposes your Real Debrid library as a WebDAV server, automatically categorising torrents into `films/` and `shows/` directories
+3. **Media Organiser** mounts Zurg via its own embedded rclone instance, scans every 5 minutes, parses torrent names using `guessit`, verifies against TMDb, and creates clean symlinks:
+   - `media/films/The Dark Knight (2008)/The Dark Knight (2008).mkv`
+   - `media/shows/Breaking Bad (2008)/Season 01/Breaking Bad (2008) S01E01.mkv`
+4. **Jellyfin** runs its own embedded rclone mount and reads the organised `media/` directory — symlinks resolve because both containers mount at `/zurg`
 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (included with Docker Desktop)
+- A [Real Debrid](https://real-debrid.com/) account
 - [GitHub Desktop](https://desktop.github.com/) is recommended for cloning and managing the repository
 
 ## Step 1 — Basic setup
@@ -26,8 +41,10 @@ Get movies and series. That's it. Using open-source technologies.
    ```
    cp .env.example .env
    ```
-2. Check your timezone (`TZ`), `DOWNLOADS` and `MEDIA` paths are correct
-3. Check `PUID` and `PGID` match your user (find with `id $USER`)
+2. Set your **Real Debrid API token** (`REAL_DEBRID_API_KEY`) — get it from https://real-debrid.com/apitoken
+3. Set your **TMDb API key** (`TMDB_API_KEY`) — free key from https://www.themoviedb.org/settings/api (recommended for accurate naming)
+4. Check your timezone (`TZ`) and `MEDIA` path are correct
+5. Check `PUID` and `PGID` match your user (find with `id $USER`)
 
 ## Step 2 — Choose your access method
 
@@ -68,20 +85,13 @@ Access all services remotely via your own domain (e.g. `jellyfin.example.com`) o
 
 > **Note:** DNS records are created automatically when the Caddy container starts. It registers itself as a Tailscale node called "box", then uses the Tailscale API to discover its own IP and upserts Cloudflare A records for `DOMAIN` and `*.DOMAIN`. Check progress with `docker compose logs caddy`. If you need to manually update DNS records after the container is running, you can still use `./scripts/setup-dns.sh`.
 
-## Step 3 — Optional: Mullvad WireGuard VPN
+## Adding content
 
-Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
+1. Go to [Debrid Media Manager](https://debridmediamanager.com) and sign in with your Real Debrid account
+2. Search for a film or show and add it to your library
+3. Within ~5 minutes, the organiser will detect the new content, create properly named symlinks, and Jellyfin will pick it up on its next library scan
 
-1. Go to [Mullvad WireGuard config generator](https://mullvad.net/en/account/wireguard-config)
-2. Generate and download a WireGuard configuration
-3. Copy from the config file:
-   - `PrivateKey` → `.env` as `WIREGUARD_PRIVATE_KEY`
-   - `Address` (IPv4, e.g. `10.x.x.x/32`) → `.env` as `WIREGUARD_ADDRESSES`
-4. Optionally set `VPN_CITY` in `.env` (e.g. `Zurich`, `London`)
-5. Add to `.env`:
-   ```
-   COMPOSE_FILE=docker-compose.yml:docker-compose.vpn.yml
-   ```
+> **Tip:** You can trigger a Jellyfin library scan manually from the Jellyfin admin dashboard, or wait for the scheduled scan.
 
 ## Accessing your services
 
@@ -91,10 +101,13 @@ Routes download traffic through Mullvad. Skip this step if you don't need a VPN.
 | Homepage     | `localhost:3000` | `https://yourdomain.com`           |
 | Portainer    | `localhost:9000` | `https://portainer.yourdomain.com` |
 | File Browser | `localhost:8080` | `https://files.yourdomain.com`     |
-| Deluge       | `localhost:8112` | `https://deluge.yourdomain.com`    |
-| Prowlarr     | `localhost:9696` | `https://prowlarr.yourdomain.com`  |
-| Sonarr       | `localhost:8989` | `https://sonarr.yourdomain.com`    |
-| Radarr       | `localhost:7878` | `https://radarr.yourdomain.com`    |
+| Zurg         | `localhost:9999` | `https://zurg.yourdomain.com`      |
+
+## Transcoding
+
+Jellyfin supports transcoding for clients that can't direct-play the source format. On macOS with Apple Silicon, hardware transcoding (VideoToolbox) is not available inside Docker containers — software transcoding is used instead, which is fast enough on Apple Silicon for most use cases.
+
+If you migrate to a Linux host with an Intel iGPU or NVIDIA GPU, uncomment the device passthrough lines in `docker-compose.yml` to enable hardware transcoding.
 
 ## Jellyfin library cache
 

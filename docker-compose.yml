@@ -1,66 +1,37 @@
 services:
-  # Download services
-  deluge:
-    image: linuxserver/deluge:latest
+  # Real Debrid mount — exposes RD library as a WebDAV server
+  zurg:
+    build: ${APPS}/zurg/config
+    container_name: zurg
     restart: unless-stopped
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - TZ=${TZ}
+      - REAL_DEBRID_API_KEY=${REAL_DEBRID_API_KEY}
     volumes:
-      - ${APPS}/deluge/data:/config
-      - ${DOWNLOADS}:/downloads
+      - ${APPS}/zurg/config/config.yml:/app/config.yml
+      - zurgdata:/app/data
     ports:
-      - 8112:8112
-      - 6881:6881
-      - 6881:6881/udp
-  prowlarr:
-    image: linuxserver/prowlarr:latest
+      - 9999:9999
+
+  # Media organiser — mounts Zurg via its own rclone instance, then creates
+  # Jellyfin-compatible symlinks in /media pointing to /zurg/...
+  organiser:
+    build: ${APPS}/organiser/config
+    container_name: organiser
     restart: unless-stopped
+    privileged: true
     environment:
+      - TZ=${TZ}
       - PUID=${PUID}
       - PGID=${PGID}
-      - TZ=${TZ}
-      - UMASK=002
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
+      - SCAN_INTERVAL_SECS=${SCAN_INTERVAL_SECS:-300}
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${APPS}/prowlarr/data:/config
-    ports:
-      - 9696:9696
-  radarr:
-    image: linuxserver/radarr:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${APPS}/radarr/data:/config
-      - ${DOWNLOADS}:/downloads
-      - ${MEDIA}/films:/films
-    ports:
-      - 7878:7878
+      - ${APPS}/rclone/config/rclone.conf:/rclone/rclone.conf:ro
+      - ${MEDIA}:/media
+      - ${APPS}/organiser/data:/app/data
     depends_on:
-      - deluge
-      - prowlarr
-  sonarr:
-    image: linuxserver/sonarr:latest
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${APPS}/sonarr/data:/config
-      - ${DOWNLOADS}:/downloads
-      - ${MEDIA}/shows:/shows
-    ports:
-      - 8989:8989
-    depends_on:
-      - deluge
-      - prowlarr
+      - zurg
 
   # Dashboard
   homepage:
@@ -93,20 +64,25 @@ services:
       - ${APPS}/caddy/data:/data
       - ${APPS}/caddy/data/tailscale-state:/config
 
-  # Media server
+  # Media server — runs its own rclone mount at /zurg so it can follow
+  # the symlinks created by the organiser
   jellyfin:
-    image: linuxserver/jellyfin:latest
+    build: ${APPS}/jellyfin/config
     restart: unless-stopped
+    privileged: true
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
       - ${APPS}/jellyfin/data:/config
+      - ${APPS}/rclone/config/rclone.conf:/rclone/rclone.conf:ro
       - ${MEDIA}/films:/data/films
       - ${MEDIA}/shows:/data/shows
     ports:
       - 8096:8096
+    depends_on:
+      - zurg
 
   # File management
   filebrowser:
@@ -119,7 +95,6 @@ services:
       - ${APPS}:/srv/apps
       - ${APPS}/filebrowser/data:/config
       - ${APPS}/filebrowser/config/settings.json:/config/settings.json
-      - ${DOWNLOADS}:/srv/downloads
       - ${MEDIA}:/srv/media
     ports:
       - 8080:80
@@ -133,3 +108,6 @@ services:
       - ${APPS}/portainer/data:/data
     ports:
       - 9000:9000
+
+volumes:
+  zurgdata:

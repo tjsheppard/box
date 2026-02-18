@@ -2,7 +2,6 @@
 apps/*/data/
 
 # Runtime/user data
-downloads/*
 media/*
 .env
 .DS_Store

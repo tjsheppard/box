@@ -28,7 +28,11 @@ portainer.{$DOMAIN} {
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
-	reverse_proxy portainer:9000
+	reverse_proxy portainer:9443 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
 }
 
 # File management
@@ -40,38 +44,11 @@ files.{$DOMAIN} {
 	reverse_proxy filebrowser:80
 }
 
-# Torrent downloader
-deluge.{$DOMAIN} {
+# Zurg dashboard — Real Debrid library status
+zurg.{$DOMAIN} {
 	bind tailscale/box
 	tls {
 		dns cloudflare {$CF_API_TOKEN}
 	}
-	reverse_proxy {$DELUGE_ADDR:deluge:8112}
-}
-
-# Torrent indexer
-prowlarr.{$DOMAIN} {
-	bind tailscale/box
-	tls {
-		dns cloudflare {$CF_API_TOKEN}
-	}
-	reverse_proxy {$PROWLARR_ADDR:prowlarr:9696}
-}
-
-# Show management
-sonarr.{$DOMAIN} {
-	bind tailscale/box
-	tls {
-		dns cloudflare {$CF_API_TOKEN}
-	}
-	reverse_proxy {$SONARR_ADDR:sonarr:8989}
-}
-
-# Film management
-radarr.{$DOMAIN} {
-	bind tailscale/box
-	tls {
-		dns cloudflare {$CF_API_TOKEN}
-	}
-	reverse_proxy {$RADARR_ADDR:radarr:7878}
+	reverse_proxy zurg:9999
 }

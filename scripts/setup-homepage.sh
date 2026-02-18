@@ -83,7 +83,7 @@ for tmpl in services.yaml.template settings.yaml.template bookmarks.yaml.templat
   fi
 
   # Replace API key and credential placeholders
-  for VAR in JELLYFIN_API_KEY DELUGE_PASS PROWLARR_API_KEY SONARR_API_KEY RADARR_API_KEY PORTAINER_API_KEY; do
+  for VAR in JELLYFIN_API_KEY PORTAINER_API_KEY; do
     VAL="${!VAR:-}"
     if [[ -n "$VAL" ]]; then
       sed -i '' "s/<${VAR}>/${VAL}/g" "$output"
@@ -112,5 +112,4 @@ echo ""
 echo "Note: widgets.yaml and docker.yaml are static and don't need templating."
 echo ""
 echo "If you haven't set API keys yet, update these in .env and re-run:"
-echo "  JELLYFIN_API_KEY, DELUGE_PASS, PROWLARR_API_KEY,"
-echo "  SONARR_API_KEY, RADARR_API_KEY, PORTAINER_API_KEY"
+echo "  JELLYFIN_API_KEY, PORTAINER_API_KEY"
